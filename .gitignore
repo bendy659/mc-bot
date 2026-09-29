@@ -16,3 +16,5 @@
 
 # AI mind old
 /data/brains_old
+# Кэш Python во всех папках py/ (sim/, training_modules/)
+__pycache__/
