@@ -151,6 +151,10 @@ def install(tasks: list[str]) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Салки в симуляции: обучение мозгов chase/flee без Minecraft")
     parser.add_argument("--minutes", type=float, default=10.0, help="сколько учить (минут настоящего времени)")
+    # Проверки снимков сравнивают по игровому времени: на машине без
+    # видеокарты игра идёт медленнее, и те же --minutes — меньше попыток.
+    parser.add_argument("--game-minutes", type=float, default=0.0,
+                        help="остановиться после стольких минут ИГРОВОГО времени (0 — только по --minutes)")
     parser.add_argument("--bots", type=int, default=CONFIG["bot"].get("count", 12), help="ботов на арене")
     parser.add_argument("--report", type=float, default=300.0, help="сводка раз в столько секунд игрового времени")
     # Сколько шагов обучения на одно состояние. В игре — train.learn_steps_per_tick
@@ -282,6 +286,8 @@ def main() -> int:
             if ticks % 20 == 0 and STOP_FILE.exists():
                 STOP_FILE.unlink(missing_ok=True)
                 print("[sim] Попросили остановиться (data/sim/stop) — сохраняю и выхожу.")
+                break
+            if args.game_minutes > 0 and arena.time >= args.game_minutes * 60:
                 break
             if hunt and loop.hunt.active_from is not None and (loop.hunt.target_name, loop.hunt.active_from) != last_hunt:
                 last_hunt = (loop.hunt.target_name, loop.hunt.active_from)
