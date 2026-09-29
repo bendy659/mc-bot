@@ -4,6 +4,13 @@
 # Node cache
 /node_modules
 
+# Python
+/py/__pycache__/
+
+# Plugin
+/plugin/.gradle
+/plugin/build
+
 # Local server
 /server
 
