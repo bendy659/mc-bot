@@ -1,0 +1,11 @@
+# ZCode (by z.ai)
+/.zcode
+
+# Node cache
+/node_modules
+
+# Local server
+/server
+
+# AI mind old
+/data/brains_old
