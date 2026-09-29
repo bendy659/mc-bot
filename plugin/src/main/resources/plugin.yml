@@ -1,0 +1,15 @@
+name: McBot
+version: '${version}'
+main: mcbot.McBotPlugin
+api-version: '26.1'
+description: Боты mc-bot — настоящие игроки сервера под управлением ИИ из Python
+libraries:
+  - org.zeromq:jeromq:0.6.0
+commands:
+  mcbot:
+    description: Боты mc-bot
+    usage: /mcbot start [сколько] | stop | cmd <номер|all> <команда> | list | walk <бот> [тиков]
+    permission: mcbot.admin
+permissions:
+  mcbot.admin:
+    default: op

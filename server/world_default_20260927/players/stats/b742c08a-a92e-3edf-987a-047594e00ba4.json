@@ -1,0 +1,45 @@
+{
+  "stats": {
+    "minecraft:picked_up": {
+      "minecraft:dirt": 2,
+      "minecraft:oak_log": 1,
+      "minecraft:flint": 2,
+      "minecraft:gravel": 2
+    },
+    "minecraft:used": {
+      "minecraft:wooden_sword": 98,
+      "minecraft:gravel": 1,
+      "minecraft:oak_log": 1
+    },
+    "minecraft:custom": {
+      "minecraft:time_since_rest": 65518,
+      "minecraft:walk_one_cm": 351129,
+      "minecraft:leave_game": 3,
+      "minecraft:damage_taken": 2436,
+      "minecraft:damage_dealt": 2969,
+      "minecraft:play_time": 133274,
+      "minecraft:jump": 2550,
+      "minecraft:time_since_death": 65497,
+      "minecraft:drop": 3,
+      "minecraft:sprint_one_cm": 487798,
+      "minecraft:fall_one_cm": 2125,
+      "minecraft:total_world_time": 133274,
+      "minecraft:fly_one_cm": 2519,
+      "minecraft:walk_on_water_one_cm": 39182,
+      "minecraft:deaths": 3,
+      "minecraft:player_kills": 3
+    },
+    "minecraft:dropped": {
+      "minecraft:gravel": 1,
+      "minecraft:flint": 2
+    },
+    "minecraft:broken": {
+      "minecraft:wooden_sword": 1
+    },
+    "minecraft:mined": {
+      "minecraft:dirt": 1,
+      "minecraft:oak_log": 1
+    }
+  },
+  "DataVersion": 4790
+}

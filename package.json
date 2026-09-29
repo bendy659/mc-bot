@@ -1,0 +1,24 @@
+{
+	"name": "mc-bot",
+	"version": "1.0.0",
+	"private": true,
+	"description": "Mineflayer-сторона самообучающегося ИИ-бота для Minecraft (в паре с Python/PyTorch-контроллером).",
+	"main": "js/bot.js",
+	"scripts": {
+		"bot": "node js/bot.js",
+		"ai": "python py/ai_loop.py",
+		"ui": "python py/launcher.py",
+		"record": "node js/record.js",
+		"train-bc": "python py/train_bc.py",
+		"test-zmq": "node js/test_zeromq.js",
+		"test-vision": "node js/test_vision.js",
+		"test-route": "node js/test_route.js",
+		"test-actions": "node js/test_actions.js",
+		"probe": "node js/probe.js"
+	},
+	"dependencies": {
+		"mineflayer": "^4.23.0",
+		"vec3": "^0.1.10",
+		"zeromq": "^6.8.0"
+	}
+}

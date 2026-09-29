@@ -1,0 +1,27 @@
+{
+  "stats": {
+    "minecraft:picked_up": {
+      "minecraft:gravel": 2
+    },
+    "minecraft:used": {
+      "minecraft:wooden_sword": 68
+    },
+    "minecraft:custom": {
+      "minecraft:time_since_rest": 750,
+      "minecraft:walk_one_cm": 309058,
+      "minecraft:leave_game": 3,
+      "minecraft:damage_taken": 1323,
+      "minecraft:play_time": 133274,
+      "minecraft:damage_dealt": 2401,
+      "minecraft:jump": 1960,
+      "minecraft:time_since_death": 729,
+      "minecraft:sprint_one_cm": 506359,
+      "minecraft:fall_one_cm": 1575,
+      "minecraft:total_world_time": 133274,
+      "minecraft:fly_one_cm": 3315,
+      "minecraft:walk_on_water_one_cm": 36364,
+      "minecraft:deaths": 10
+    }
+  },
+  "DataVersion": 4790
+}

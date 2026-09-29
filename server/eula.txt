@@ -1,0 +1,2 @@
+# Лицензия Minecraft (https://aka.ms/MinecraftEULA) принята автором проекта 2026-09-26.
+eula=true

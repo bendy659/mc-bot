@@ -1,0 +1,27 @@
+{
+  "stats": {
+    "minecraft:used": {
+      "minecraft:dirt": 406
+    },
+    "minecraft:custom": {
+      "minecraft:time_since_rest": 75989,
+      "minecraft:total_world_time": 108852,
+      "minecraft:leave_game": 5,
+      "minecraft:damage_taken": 290,
+      "minecraft:sneak_time": 4869,
+      "minecraft:play_time": 108852,
+      "minecraft:damage_dealt": 130,
+      "minecraft:deaths": 1,
+      "minecraft:jump": 2366,
+      "minecraft:time_since_death": 75969
+    },
+    "minecraft:killed_by": {
+      "minecraft:player": 1
+    },
+    "minecraft:mined": {
+      "minecraft:dirt": 1,
+      "minecraft:grass_block": 1
+    }
+  },
+  "DataVersion": 4790
+}
