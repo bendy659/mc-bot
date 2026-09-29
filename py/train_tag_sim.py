@@ -61,9 +61,22 @@ import tag_game  # noqa: E402
 from sim.game import SimArena  # noqa: E402
 from sim.teacher import bridge_rescue, teacher_actions  # noqa: E402
 
-ai_loop.DATA_DIR = SIM_DIR
-ai_loop.BRAINS_DIR = SIM_DIR / "brains"
-ai_loop.METRICS_CSV = SIM_DIR / "metrics.csv"
+
+
+def use_sim_dir(folder: Path) -> None:
+    """Где лежат мозги, память и метрики симуляции (и файл остановки).
+    Своя папка — чтобы долгое обучение не перезаписывало data/sim в git
+    каждые пару минут (в data/sim тогда кладёшь сам, когда нужно), а
+    проверка снимка (sim/eval_snapshot.py) — не трогала мозги обучения."""
+    global SIM_DIR, STOP_FILE
+    SIM_DIR = folder
+    STOP_FILE = folder / "stop"
+    ai_loop.DATA_DIR = folder
+    ai_loop.BRAINS_DIR = folder / "brains"
+    ai_loop.METRICS_CSV = folder / "metrics.csv"
+
+
+use_sim_dir(SIM_DIR)
 
 
 class Outbox:
@@ -204,6 +217,8 @@ def main() -> int:
     # проверяются без учителей (--eval), в игру идёт лучший.
     parser.add_argument("--snapshots", type=Path, default=None,
                         help="папка: при каждой сводке класть туда копию мозгов (<минута игры>m/<задачка>)")
+    parser.add_argument("--sim-dir", type=Path, default=None,
+                        help="папка мозгов симуляции вместо data/sim (при первом запуске туда копируется data/sim/brains)")
     parser.add_argument("--install", nargs="*", metavar="TASK",
                         help="перенести мозги симуляции в игру и выйти (без имён — chase flee hunt bridge)")
     args = parser.parse_args()
@@ -211,6 +226,12 @@ def main() -> int:
         # walking в симуляции не учится (только основа моста) — без имён его не трогаем.
         return install(args.install or [task for task in TASKS if task != "walking"])
 
+    if args.sim_dir is not None:
+        default_brains = SIM_DIR / "brains"
+        use_sim_dir(args.sim_dir.resolve())
+        if not (SIM_DIR / "brains").exists() and default_brains.exists():
+            shutil.copytree(default_brains, SIM_DIR / "brains")
+            print(f"[sim] Мозги симуляции: начинаю с копии {default_brains}.")
     SIM_DIR.mkdir(parents=True, exist_ok=True)
     STOP_FILE.unlink(missing_ok=True)  # старая просьба остановиться — не про этот запуск
     prepare_brains()

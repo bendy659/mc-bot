@@ -31,7 +31,6 @@ PY_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PY_DIR))
 
 import train_tag_sim  # noqa: E402  (он же настраивает ai_loop на симуляцию)
-import ai_loop  # noqa: E402
 from training_modules.bridge import BridgeModule  # noqa: E402
 
 TASK = "bridge"
@@ -64,12 +63,8 @@ def main() -> int:
     shutil.copytree(brain, work / "brains" / TASK)
 
     train_tag_sim.CONFIG["zmq"] = {"node_to_py": args.port, "py_to_node": args.port + 1}
-    train_tag_sim.SIM_DIR = work
-    train_tag_sim.STOP_FILE = work / "stop"
+    train_tag_sim.use_sim_dir(work)
     train_tag_sim.prepare_brains = lambda: None  # копии игровых мозгов других задачек не нужны
-    ai_loop.DATA_DIR = work
-    ai_loop.BRAINS_DIR = work / "brains"
-    ai_loop.METRICS_CSV = work / "metrics.csv"
 
     # События окна сводки — те же, по которым пишется строка "как дела".
     collected: Counter = Counter()

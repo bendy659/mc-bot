@@ -49,6 +49,13 @@ from training_modules import allowed_actions
 MIN_FREE_BYTES = 300 * 2**20
 
 
+def vision_memory_format(device) -> torch.memory_format:
+    """Раскладка зрения и свёрток в памяти. На процессоре channels_last
+    считает свёртки в ~1.4 раза быстрее (числа те же — меняется только
+    порядок байт); на видеокарте оставляем как было — там не проверяли."""
+    return torch.channels_last if torch.device(device).type == "cpu" else torch.contiguous_format
+
+
 class ChannelLearner:
     """Одна сеть одного канала в мозге задачки: онлайн + target + оптимизатор."""
 
@@ -69,15 +76,18 @@ class ChannelLearner:
         self.allowed_indices = allowed.nonzero().flatten().tolist()
 
         channels, res_y, res_x = vision_shape
-        self.policy_net = DQN(channels, res_y, res_x, scalar_dim, self.num_actions).to(device)
-        self.target_net = DQN(channels, res_y, res_x, scalar_dim, self.num_actions).to(device)
+        self.policy_net = DQN(channels, res_y, res_x, scalar_dim, self.num_actions).to(
+            device, memory_format=vision_memory_format(device))
+        self.target_net = DQN(channels, res_y, res_x, scalar_dim, self.num_actions).to(
+            device, memory_format=vision_memory_format(device))
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
         # Копия для ответов ботам: учится policy_net (в потоке обучения), а
         # ответы идут по копии — не ждут шага обучения и не читают веса
         # посреди обновления. Копия догоняет policy_net каждые
         # actor_sync_every шагов (TaskBrain._sync_actors).
-        self.actor_net = DQN(channels, res_y, res_x, scalar_dim, self.num_actions).to(device)
+        self.actor_net = DQN(channels, res_y, res_x, scalar_dim, self.num_actions).to(
+            device, memory_format=vision_memory_format(device))
         self.actor_net.load_state_dict(self.policy_net.state_dict())
         self.actor_net.eval()
         # fused — весь шаг Adam одним CUDA-ядром вместо десятков мелких:
@@ -343,7 +353,7 @@ class TaskBrain:
     def _vision_input(self, compact: torch.Tensor) -> torch.Tensor:
         """Компактное зрение -> вход сети (или нули, если задачке зрение
         выключено: архитектура та же, просто сигнала нет)."""
-        vision = expand_vision(compact, self.config)
+        vision = expand_vision(compact, self.config).contiguous(memory_format=vision_memory_format(self.device))
         return vision if self.use_vision else torch.zeros_like(vision)
 
     # --- чекпоинты: data/brains/<задачка>/<канал>.pt ------------------------
