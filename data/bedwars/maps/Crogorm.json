@@ -16,7 +16,7 @@
  "void_y": 72,
  "teams": [
   {
-   "color": "red",
+   "color": "lime",
    "bed": {
     "head": [
      80,
@@ -41,7 +41,7 @@
    ]
   },
   {
-   "color": "blue",
+   "color": "yellow",
    "bed": {
     "head": [
      36,
@@ -66,7 +66,7 @@
    ]
   },
   {
-   "color": "lime",
+   "color": "cyan",
    "bed": {
     "head": [
      -36,
@@ -91,7 +91,7 @@
    ]
   },
   {
-   "color": "yellow",
+   "color": "white",
    "bed": {
     "head": [
      -80,
@@ -116,7 +116,7 @@
    ]
   },
   {
-   "color": "cyan",
+   "color": "pink",
    "bed": {
     "head": [
      -80,
@@ -141,7 +141,7 @@
    ]
   },
   {
-   "color": "white",
+   "color": "gray",
    "bed": {
     "head": [
      -36,
@@ -166,7 +166,7 @@
    ]
   },
   {
-   "color": "pink",
+   "color": "red",
    "bed": {
     "head": [
      36,
@@ -191,7 +191,7 @@
    ]
   },
   {
-   "color": "gray",
+   "color": "blue",
    "bed": {
     "head": [
      80,

@@ -525,6 +525,10 @@ class ActionExecutor {
                 this.digging = null;
                 bot.stopDigging();
             }
+            // В руке не оружие (строил), а оружие есть — сперва взять его, бить —
+            // следующим решением: смена предмета сбрасывает заряд, удар сразу
+            // был бы слабым (автор: "не умеют свапать предметы в руке").
+            if (this.weaponToHand()) return;
             // Бьёт по тому, что впереди (до ~30° влево-вправо, по высоте —
             // любое), — пусть и смотрит на того, кого бьёт.
             bot.lookAt(entity.position.offset(0, (entity.height || 1) * 0.5, 0), true);
@@ -643,10 +647,14 @@ class ActionExecutor {
         const rank = (item) => (!item ? -1 : /_sword$/.test(item.name) ? 4 : /_axe$/.test(item.name) ? 3
             : item.name === 'trident' ? 2 : item.name === 'mace' ? 1 : -1);
         let best = null;
-        for (const item of bot.inventory.items()) {
+        for (const item of bot.inventory?.items?.() ?? []) {
             if (rank(item) > rank(best ?? bot.heldItem)) best = item;
         }
-        if (best && rank(best) > rank(bot.heldItem)) bot.equip(best, 'hand').catch(() => {});
+        if (best && rank(best) > rank(bot.heldItem)) {
+            bot.equip(best, 'hand').catch(() => {});
+            return true;
+        }
+        return false;
     }
 
     stopMovement() {

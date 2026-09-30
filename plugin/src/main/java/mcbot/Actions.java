@@ -218,7 +218,7 @@ final class Actions {
      * мечом. Заранее, а не в миг удара: смена предмета в руке обнуляет заряд
      * удара (Player.tick), и удар сразу после неё был бы слабым.
      */
-    private void weaponToHand() {
+    private boolean weaponToHand() {
         Inventory inventory = player.getInventory();
         int best = -1;
         int bestRank = InventoryInfo.weaponRank(player.getMainHandItem());
@@ -230,7 +230,9 @@ final class Actions {
                 bestRank = rank;
             }
         }
-        if (best >= 0) equipToHand(best);
+        if (best < 0) return false;
+        equipToHand(best);
+        return true;
     }
 
     // --- ноги и взгляд ---------------------------------------------------------------
@@ -324,6 +326,9 @@ final class Actions {
         Entity entity = findEntityInCrosshair();
         if (entity != null) {
             if (task == Task.DIG) finishTask();
+            // В руке не оружие (строил), а оружие есть — сперва взять его, бить —
+            // следующим решением: смена предмета сбрасывает заряд (js/actions.js так же).
+            if (weaponToHand()) return;
             double height = Entities.heightOf(entity);
             lookAt(entity.position().add(0, (height > 0 ? height : 1) * 0.5, 0));
             lastAttackCharge = attackCharge(); // с какой силой бьёт — до сброса заряда

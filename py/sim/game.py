@@ -574,7 +574,13 @@ class SimArena:
         hands = actions.get("hands", "hands_idle")
         if hands == "attack_center":
             victim = self._strike_target(agent)
-            if victim is not None:
+            if victim is not None and agent.sword and agent.holding_block:
+                # В руке блок (строил), меч есть — сперва взять меч, бить —
+                # следующим решением: смена предмета сбрасывает заряд (как плагин и JS).
+                agent.dig = None
+                agent.holding_block = False
+                agent.last_attack_time = self.time
+            elif victim is not None:
                 agent.dig = None
                 self._hit(agent, victim)
             elif not self._busy(agent):

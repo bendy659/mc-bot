@@ -81,6 +81,9 @@ class BedwarsGame:
         self.started_at: float | None = None
         self.next_game_at = 0.0           # когда начать следующую игру (после паузы)
         self.first_seen: float | None = None  # когда судья впервые увидел ботов
+        # Команды /team прошлой игры; при первой игре — все возможные (могли
+        # остаться от прошлого запуска), дальше — только свои.
+        self.team_names = [f"bw_{color}" for color in TEAM_COLOR]
         self.events: dict[int, list[str]] = {}
         self.commands: list[str] = []
         self.stats = {"games": 0, "decided": 0, "beds": 0, "kills": 0, "time_up": 0}
@@ -132,13 +135,15 @@ class BedwarsGame:
         self.commands.append(f"mcbot bedwars {name}")
         # Команды сервера (/team): ник цветом своей команды, по своим не бьёшь —
         # и людям видно, кто за кого (автор: "рассыпались по командам").
-        for color in TEAM_COLOR:
-            self.commands.append(f"team remove bw_{color}")
+        for name in self.team_names:  # команды прошлой игры (удалять несуществующие — шум ошибок в логе)
+            self.commands.append(f"team remove {name}")
+        self.team_names = [f"bw_{team['color']}" for team in self.teams]
         for team in self.teams:
             color = team["color"]
             self.commands += [f"team add bw_{color}", f"team modify bw_{color} color {TEAM_COLOR[color]}",
-                              f"team modify bw_{color} friendlyFire false",
-                              f"team join bw_{color} {' '.join(self.players[sid]['name'] for sid in team['members'])}"]
+                              f"team modify bw_{color} friendlyFire false"]
+            # По одному: /team join в новых версиях берёт одно имя (или селектор).
+            self.commands += [f"team join bw_{color} {self.players[sid]['name']}" for sid in team["members"]]
         for session_id in ids:
             self._spawn(session_id, now, kit=True)
 

@@ -1315,7 +1315,9 @@ def main():
             teacher_actions(session, state, loop.config, loop)
             if session.id <= (bedwars_teachers if session.task_name == BEDWARS else teachers)
             and not session.greedy else None)
-        print(f"[ai] Учитель ведёт ботов 1–{teachers} в салках, охоте, на мосту и в бедварсе (train.live_teachers).")
+        print(f"[ai] Учитель ведёт ботов 1–{teachers} в салках, охоте и на мосту (train.live_teachers), "
+              f"в бедварсе — {'всех' if bedwars_teachers >= 1000 else f'1–{bedwars_teachers}'} "
+              f"(modules.bedwars.live_teachers).")
 
     def on_sigint(sig, frame):
         print("\n[ai] Останавливаюсь (Ctrl+C)...")

@@ -10,7 +10,7 @@ data/bedwars/maps/<карта>.json.
     python py/bedwars_maps.py --shapes     # формы блоков из Node -> data/bedwars/block_shapes.json
 
 Что в описании: границы карты, острова (сверху — связные области блоков),
-восемь команд (кровать, цвет, где появляться, где генератор), точки
+восемь команд (кровать, цвет — по блокам у кровати, где появляться, где генератор), точки
 генераторов алмазов и изумрудов. Генераторов и магазинов в самих мирах нет (на Hypixel
 это сущности, в скачанном мире их не осталось) — их места выводятся из
 раскладки островов (см. describe); JSON можно поправить руками, тогда
@@ -257,9 +257,43 @@ def nearest_point(points: list, target: tuple[float, float]) -> tuple[int, int, 
     return min(points, key=lambda p: (p[0] - target[0]) ** 2 + (p[2] - target[1]) ** 2, default=None)
 
 
-# Цвета команд — по кругу (против часовой, от востока), в порядке Hypixel.
-# По блокам острова цвет не угадать: на картах везде свой цвет темы.
+# Цвета команд Hypixel. Цвет острова — по цветным блокам у кровати (шерсть,
+# глина, стекло, ковёр в радиусе COLOR_RADIUS): берётся цвет, которого у этой
+# кровати больше, чем в среднем у остальных (цвет темы карты есть у всех и
+# не отличает). Не нашёлся — по кругу (против часовой, от востока).
 TEAM_COLORS = ["red", "blue", "lime", "yellow", "cyan", "white", "pink", "gray"]
+COLOR_RADIUS = 6
+COLORED_IDS = {35, 95, 159, 160, 171}  # шерсть, стекло, глина, стеклянная панель, ковёр — цвет в метаданных 1.8
+META_COLORS = ["white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
+               "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"]
+
+
+def team_colors(blocks: dict, beds: list) -> list[str]:
+    """Цвета команд по блокам у кроватей (см. TEAM_COLORS)."""
+    counts = []
+    for x, y, z in beds:
+        count = dict.fromkeys(TEAM_COLORS, 0)
+        for dx in range(-COLOR_RADIUS, COLOR_RADIUS + 1):
+            for dy in range(-3, 5):
+                for dz in range(-COLOR_RADIUS, COLOR_RADIUS + 1):
+                    block_id, meta = blocks.get((x + dx, y + dy, z + dz), (0, 0))
+                    color = META_COLORS[meta] if block_id in COLORED_IDS else None
+                    if color in count:
+                        count[color] += 1
+        counts.append(count)
+    scores = []
+    for index, count in enumerate(counts):
+        others = [c for j, c in enumerate(counts) if j != index]
+        for color in TEAM_COLORS:
+            average = sum(c[color] for c in others) / max(len(others), 1)
+            if count[color] - average > 0.5:
+                scores.append((count[color] - average, index, color))
+    colors: list[str | None] = [None] * len(beds)
+    for _, index, color in sorted(scores, reverse=True):
+        if colors[index] is None and color not in colors:
+            colors[index] = color
+    spare = [color for color in TEAM_COLORS if color not in colors]
+    return [color or spare.pop(0) for color in colors]
 # Сколько генераторов алмазов на карте (у Hypixel на 8 команд — 4).
 DIAMOND_COUNT = 4
 
@@ -330,8 +364,8 @@ def describe(name: str, blocks: dict) -> dict:
         "bounds": {"min": [min(xs), min(ys), min(zs)], "max": [max(xs), max(ys), max(zs)]},
         # Ниже самого нижнего блока карты — пустота (упал — умер).
         "void_y": min(ys) - 10,
-        "teams": [{"color": TEAM_COLORS[index % len(TEAM_COLORS)], "bed": team["bed"], "spawn": team["spawn"],
-                   "generator": team["spawn"]} for index, team in enumerate(teams)],
+        "teams": [{"color": color, "bed": team["bed"], "spawn": team["spawn"], "generator": team["spawn"]}
+                  for color, team in zip(team_colors(blocks, [tuple(team["bed"]["head"]) for team in teams]), teams)],
         "diamonds": diamonds,
         "emeralds": [list(emerald)] if emerald else [],
         "islands": [{"center": [round(i["center"][0], 1), round(i["center"][1], 1)], "cells": len(i["cells"]),
