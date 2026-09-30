@@ -452,6 +452,15 @@ server.properties: level-type=minecraft:flat, generator-settings — явные
    Плагин в облаке собирается без gradle (repo.papermc.io закрыт): javac
    против jar-ов сервера (server/versions, server/libraries) + plugin.yml —
    скрипт в scratchpad облака (build_plugin.sh).
+1г. [x] Сетки карт для симуляции — data/bedwars/maps/<карта>.npz (origin,
+   blocks[x,y,z] -> номер в palette, palette — состояния блоков как у
+   сервера: "minecraft:oak_stairs[facing=east,...]"). Делает СЕРВЕР:
+   bedwars_maps.py --convert [--server <папка>] грузит карту (/mcbot
+   bedwars), прогружает её forceload-ом, save-all и читает регионы уже
+   нового формата (read_modern_blocks) — имена блоков в симуляции ровно
+   игровые, таблицы "id 1.8 -> имя" нет. Сверка на Airshow: из 120067
+   блоков 1.8 потерялось 20 (огонь погас), остальное — те же клетки. На
+   картах 108–229 разных состояний блоков (ступени, плиты, заборы...).
 РЕШЕНО С АВТОРОМ (2026-09-30): сначала ДВЕ команды (обучение и так
 медленное) — два соседних по кругу острова (между ними — остров алмазов),
 карта и пара соседей — случайные на каждую игру.

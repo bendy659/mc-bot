@@ -5,6 +5,8 @@ data/bedwars/maps/<карта>.json.
 Запуск (из корня проекта):
     python py/bedwars_maps.py              # все карты
     python py/bedwars_maps.py Airshow Hollow
+    python py/bedwars_maps.py --convert    # сетки для симуляции (нужен запущенный сервер, см. convert)
+    python py/bedwars_maps.py --convert --server <папка сервера> Airshow
 
 Что в описании: границы карты, острова (сверху — связные области блоков),
 восемь команд (кровать, цвет, где появляться, где генератор), точки
@@ -27,9 +29,12 @@ import json
 import math
 import struct
 import sys
+import time
 import zlib
 from collections import deque
 from pathlib import Path
+
+import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 MAPS_DIR = ROOT / "server" / "bw_maps"
@@ -136,6 +141,72 @@ def read_blocks(world: Path) -> dict[tuple[int, int, int], tuple[int, int]]:
                 nibble = meta[index >> 1]
                 blocks[(x, y, z)] = (block_id, (nibble >> 4) & 15 if index & 1 else nibble & 15)
     return blocks
+
+
+def read_modern_blocks(regions: Path, area: tuple[int, int, int, int] | None = None) -> dict[tuple[int, int, int], str]:
+    """Непустые блоки карты из регионов НОВОГО формата (после того как сервер
+    перевёл карту: /mcbot bedwars <карта>, прогрузить чанки, save-all):
+    (x, y, z) -> состояние блока "minecraft:oak_stairs[facing=east,...]".
+    Имена — ровно те, что видит игра (зрение по имени блока), поэтому
+    симуляция берёт карту отсюда, а не переводит id 1.8 сама. area — (x0, z0,
+    x1, z1) карты: чанки вне её не читаются (и могут быть не переведены)."""
+    x0, z0, x1, z1 = area or (-MAP_LIMIT, -MAP_LIMIT, MAP_LIMIT, MAP_LIMIT)
+
+    def outside(chunk_x: int, chunk_z: int) -> bool:
+        return chunk_x + 15 < x0 or chunk_x > x1 or chunk_z + 15 < z0 or chunk_z > z1
+
+    blocks = {}
+    for path in sorted(regions.glob("r.*.mca")):
+        data = path.read_bytes()
+        for index in range(1024):
+            offset = int.from_bytes(data[index * 4:index * 4 + 3], "big") * 4096
+            if offset == 0 or offset >= len(data):
+                continue
+            length = int.from_bytes(data[offset:offset + 4], "big")
+            raw = data[offset + 5:offset + 4 + length]
+            chunk = read_nbt(zlib.decompress(raw) if data[offset + 4] == 2 else gzip.decompress(raw))[1]
+            if "Level" in chunk:
+                # Чанк 1.8, который сервер не загружал, — не переведён. За
+                # пределами карты это нормально (WorldDownloader сохранял
+                # регионы целиком), внутри — карту прогрузили не всю.
+                level_x, level_z = chunk["Level"]["xPos"] * 16, chunk["Level"]["zPos"] * 16
+                if outside(level_x, level_z):
+                    continue
+                raise ValueError(f"{path.name}: чанк ({level_x}, {level_z}) не переведён — прогрузи всю карту и save-all")
+            chunk_x, chunk_z = chunk["xPos"] * 16, chunk["zPos"] * 16
+            if outside(chunk_x, chunk_z):
+                continue
+            for section in chunk.get("sections", []):
+                states = section.get("block_states")
+                if not states:
+                    continue
+                palette = [state_string(entry) for entry in states["palette"]]
+                if len(palette) == 1:
+                    if palette[0] != "minecraft:air":
+                        for index_in in range(4096):
+                            blocks[section_cell(chunk_x, section["Y"], chunk_z, index_in)] = palette[0]
+                    continue
+                # Индексы палитры упакованы в long-и, не переходя границу long-а (с 1.16).
+                bits = max(4, (len(palette) - 1).bit_length())
+                per_long = 64 // bits
+                mask = (1 << bits) - 1
+                for index_in in range(4096):
+                    word = states["data"][index_in // per_long] & 0xFFFFFFFFFFFFFFFF
+                    state = palette[(word >> (bits * (index_in % per_long))) & mask]
+                    if state != "minecraft:air":
+                        blocks[section_cell(chunk_x, section["Y"], chunk_z, index_in)] = state
+    return blocks
+
+
+def section_cell(chunk_x: int, section_y: int, chunk_z: int, index: int) -> tuple[int, int, int]:
+    return chunk_x + (index & 15), section_y * 16 + (index >> 8), chunk_z + ((index >> 4) & 15)
+
+
+def state_string(entry: dict) -> str:
+    properties = entry.get("Properties")
+    if not properties:
+        return entry["Name"]
+    return entry["Name"] + "[" + ",".join(f"{key}={value}" for key, value in sorted(properties.items())) + "]"
 
 
 # --- разбор карты ----------------------------------------------------------
@@ -262,8 +333,71 @@ def describe(name: str, blocks: dict) -> dict:
     }
 
 
+# --- карта для симуляции: сетка блоков в новом формате ---------------------
+
+def save_grid(name: str, blocks: dict[tuple[int, int, int], str]) -> Path:
+    """Сетка карты для симуляции: data/bedwars/maps/<карта>.npz —
+    origin (x, y, z самого угла), blocks[x, y, z] — номер в palette
+    (0 — воздух), palette — состояния блоков как у сервера."""
+    palette = ["minecraft:air"] + sorted(set(blocks.values()))
+    number = {state: index for index, state in enumerate(palette)}
+    xs, ys, zs = zip(*blocks)
+    origin = np.array([min(xs), min(ys), min(zs)], dtype=np.int32)
+    grid = np.zeros((max(xs) - origin[0] + 1, max(ys) - origin[1] + 1, max(zs) - origin[2] + 1), dtype=np.uint16)
+    for (x, y, z), state in blocks.items():
+        grid[x - origin[0], y - origin[1], z - origin[2]] = number[state]
+    out = OUT_DIR / f"{name}.npz"
+    np.savez_compressed(out, origin=origin, blocks=grid, palette=np.array(palette))
+    return out
+
+
+def convert(names: list[str], server_dir: Path) -> int:
+    """Карты -> сетки для симуляции ЧЕРЕЗ СЕРВЕР: он сам переводит чанки 1.8
+    (так имена блоков в симуляции — ровно те же, что в игре). Нужен запущенный
+    сервер с плагином (RCON из config.json; MCBOT_CONFIG — тестовый конфиг)
+    и мир задачки bedwars. Мир задачки при этом перезагружается."""
+    from config import CONFIG
+    from rcon import Rcon
+
+    rcon_cfg = CONFIG["server"]["rcon"]
+    rcon = Rcon(rcon_cfg.get("host", "127.0.0.1"), rcon_cfg["port"], rcon_cfg["password"])
+    rcon.connect()
+    world = CONFIG["bot"]["task_worlds"]["bedwars"]
+    regions = server_dir / "world" / "dimensions" / "minecraft" / world / "region"
+    in_world = f"execute in minecraft:{world} run "
+    for name in names or sorted(p.name for p in MAPS_DIR.iterdir() if p.is_dir()):
+        print(f"{name}: {rcon.command('mcbot bedwars ' + name).strip()}")
+        description = json.loads((OUT_DIR / f"{name}.json").read_text(encoding="utf-8"))
+        (x0, _, z0), (x1, _, z1) = description["bounds"]["min"], description["bounds"]["max"]
+        middle = (z0 + z1) // 2
+        # Прогрузить всю карту: forceload — не больше 256 чанков за раз.
+        rcon.command(in_world + "forceload remove all")
+        rcon.command(in_world + f"forceload add {x0} {z0} {x1} {middle}")
+        rcon.command(in_world + f"forceload add {x0} {middle + 1} {x1} {z1}")
+        for attempt in range(30):
+            time.sleep(3)
+            rcon.command("save-all flush")
+            try:
+                blocks = read_modern_blocks(regions, (x0, z0, x1, z1))
+            except ValueError as err:
+                if attempt == 29:
+                    raise
+                print(f"  ещё грузится ({err})")
+                continue
+            break
+        rcon.command(in_world + "forceload remove all")
+        blocks = {p: state for p, state in blocks.items() if x0 <= p[0] <= x1 and z0 <= p[2] <= z1}
+        out = save_grid(name, blocks)
+        print(f"  блоков {len(blocks)}, разных {len(set(blocks.values()))} -> {out.name} ({out.stat().st_size // 1024} КБ)")
+    rcon.close()
+    return 0
+
+
 def main(names: list[str]) -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    if names[:1] == ["--convert"]:
+        server_dir = Path(names[2]) if names[1:2] == ["--server"] else ROOT / "server"
+        return convert(names[3:] if names[1:2] == ["--server"] else names[1:], server_dir)
     worlds = [MAPS_DIR / name for name in names] if names else sorted(p for p in MAPS_DIR.iterdir() if p.is_dir())
     for world in worlds:
         out = OUT_DIR / f"{world.name}.json"
