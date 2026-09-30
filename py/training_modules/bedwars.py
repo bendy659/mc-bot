@@ -16,7 +16,8 @@ py/bedwars_game.py).
   - buy_reward — купил шерсть (блоки — только за железо с генератора).
 Упражнения (судья сам выбирает сценарий, py/bedwars_drills.py): дуэль — те
 же удары и убийство плюс duel_win_reward за победу (конец эпизода); ходьба
-по краю — прогресс по маршруту до конца тропы плюс goal_reward, когда дошёл.
+по краю — прогресс по маршруту до конца тропы плюс goal_reward, когда дошёл;
+прокопаться к кровати — goal_reward, когда сломал её; мини-бедварс — как игра.
 Руки — бить (и копать: кровать, чужие блоки на пути), столб под себя, блок
 перед собой, купить (buy — у своей точки появления, проводит судья); ноги и
 голова — все действия (мост крадучись — sneak_back).
@@ -28,7 +29,7 @@ from .hunt import HuntModule
 from .targets import times
 
 # Исходы судьи — конец эпизода: их считает ai_loop (_end_episode), не мы.
-TERMINAL_EVENTS = ("won", "lost", "duel_won", "duel_lost", "goal")
+TERMINAL_EVENTS = ("won", "lost", "duel_won", "duel_lost", "goal", "dug")
 
 
 class BedwarsModule(HuntModule):
@@ -84,7 +85,7 @@ class BedwarsModule(HuntModule):
                 self.count(event)
             value += {"bed": self.bed_reward, "kill": self.kill_reward, "bed_lost": self.bed_lost_penalty,
                       "bought": self.buy_reward, "won": self.win_reward, "lost": self.lose_penalty,
-                      "duel_won": self.duel_win_reward, "goal": self.goal_reward}.get(event, 0.0)
+                      "duel_won": self.duel_win_reward, "goal": self.goal_reward, "dug": self.goal_reward}.get(event, 0.0)
         rewards = self.team(value)
         if not curr_state.get("dead"):
             rewards["head"] += base["head"] - base["legs"]  # штраф за наклон взгляда — как у chase
@@ -106,6 +107,8 @@ class BedwarsModule(HuntModule):
             text += f"; дуэлей выиграл {events['duel_won']}"
         if events.get("goal"):
             text += f"; дошёл по краю {times(events['goal'])}"
+        if events.get("dug"):
+            text += f"; прокопался к кровати {times(events['dug'])}"
         if events.get("fell"):
             text += f"; падал в пустоту {times(events['fell'])}"
         return text, rate

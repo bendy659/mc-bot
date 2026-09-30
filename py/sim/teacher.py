@@ -311,6 +311,8 @@ BRIDGE_PITCH = math.radians(-80)  # мост: взгляд вниз — из-з�
 BRIDGE_ROW = 2.0      # ближе к цели по z — уже в ряду острова цели (bridge_course.ISLAND): мост "Г" — вбок
 BRIDGE_ABOVE = 2.5    # ближе по z и x — над островом цели (он ниже: спрыгнуть)
 WALK_MARGIN = 0.65    # мост: шагом за решение проходят до 0.65 блока — столько пола сзади и нужно
+LATENCY_DECISIONS = 2 # ...на столько решений: вживую ответ доходит с опозданием до двух решений
+                      # (облако, 2026-09-30) — с запасом на одно учитель у края острова срывался
 
 
 def bridge_actions(state: dict) -> dict:
@@ -381,7 +383,7 @@ def bridge_actions(state: dict) -> dict:
         # а крадучись дальше игра не пускает (отодвигает шагами по 0.05). Шаг
         # вперёд — и к краю заново, с другим разгоном.
         legs = "walk_forward"
-    elif ground[2] > WALK_MARGIN + max(0.0, -me.get("move_forward", 0.0)):
+    elif ground[2] > WALK_MARGIN * LATENCY_DECISIONS + max(0.0, -me.get("move_forward", 0.0)):
         legs = "walk_back"
     else:
         legs = "sneak_back"
@@ -655,7 +657,9 @@ def bedwars_actions(state: dict, module) -> dict:
         return {"legs": "idle", "head": _level(me, "head_idle"), "hands": "hands_idle"}
     strike = bool(state.get("strike")) and _charged(state, full=True)
     route = state.get("route") or {}
-    shopping = None if strike else bedwars_shopping(state, module)
+    scenario = getattr(module, "scenario", "game")
+    # Магазин — только в игре на карте: в упражнениях его нет (шерсть дают сразу).
+    shopping = None if strike or scenario != "game" else bedwars_shopping(state, module)
     if shopping is not None:
         return shopping
     if getattr(module, "role", None) == "defend" and module.own_bed and not (goal.get("h") or 0) > 0:
@@ -684,11 +688,11 @@ def bedwars_actions(state: dict, module) -> dict:
         yaw_error, pitch_error = aim_errors(me, goal)
         legs = ("turn_left" if yaw_error > 0 else "turn_right") if abs(yaw_error) > COARSE else "idle"
         center = state.get("center_block")
-        # Кровать закрыта шерстью (защитник соперника) — прицел упирается в
-        # шерсть: копать её (ломается только поставленное игроками, а шерсть
-        # на карте ставят только они). Автор: "блоки не особо хотят копать".
+        # Кровать закрыта шерстью (защитник соперника) или досками (упражнение
+        # "прокопаться") — прицел упирается в укрытие: копать его (ломается
+        # только поставленное игроками). Автор: "блоки не особо хотят копать".
         aimed = (center is not None and center["distance"] <= 4.5
-                 and (center["name"].endswith("_bed") or center["name"].endswith("_wool")))
+                 and center["name"].endswith(("_bed", "_wool", "_planks")))
         return {"legs": legs, "head": _aim_head(yaw_error, pitch_error),
                 "hands": "attack_center" if aimed or strike else "hands_idle"}
     waypoint = route.get("waypoint")
@@ -706,6 +710,11 @@ def bedwars_actions(state: dict, module) -> dict:
     if route.get("complete"):
         legs, head = _path_steer(state, module, ground)
         return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
+    if scenario == "dig":
+        # Прокопаться: маршрута нет из-за укрытия, а не пустоты — не мост, а
+        # вплотную к кровати (упрётся в укрытие — и копать его, см. выше).
+        legs, head = _careful_steer(me, goal, ground)
+        return {"legs": legs, "head": _level(me, head), "hands": "hands_idle"}
     module.teacher_bridging = True
     actions = bridge_actions(state)
     # Мост начат не у края (пол впереди кончился у препятствия, а не у пустоты)

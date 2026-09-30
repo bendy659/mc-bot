@@ -778,7 +778,7 @@ class AILoop:
         if game.started_at is not None and now >= self._bed_check_at:
             self._bed_check_at = now + 0.5
             for team_index, cells in game.beds_to_check(now):
-                if not self.server.is_bed(game.world, cells):
+                if not self.server.is_bed(game.check_world(), cells):
                     game.bed_broken(team_index, now)
         game.check_end(now)
         session.module.scenario = game.scenario  # игра или упражнение (учителю)

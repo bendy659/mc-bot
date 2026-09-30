@@ -10,6 +10,13 @@ bedwars, у каждой пары (дуэль) или каждого бота (�
   - ходьба по краю (EdgeLayout): узкая тропа над пустотой — повороты, уступы
     вверх (автопрыжок) и вниз — от пятачка старта до пятачка цели. Упал —
     умер (пустота).
+  - прокопаться к кровати (DigLayout): на островке кровать под куполом из 1–2
+    слоёв (шерсть, доски — как её закрывают в бедварсе); сломать кровать,
+    ломая всё, что на пути (автор: "ломание блоков для добирания до целей —
+    плохо").
+  - мини-бедварс 1 на 1 (MiniLayout): два островка с кроватями через пропасть
+    в 5–10 блоков, у обоих меч и шерсть — мост навстречу врагу, драка,
+    кровать (автор: "когда враг рядом — ссыкуют и стопорятся").
 
 Раскладка — одна на симуляцию и сервер (как py/bridge_course.py): судья
 (py/bedwars_game.py) строит дорожки командами fill в мире упражнений
@@ -40,6 +47,18 @@ PAD = 1                 # полуразмер пятачков старта и 
 MATERIALS = ("white_wool", "red_wool", "blue_wool", "lime_wool", "yellow_wool", "oak_planks", "sandstone",
              "stone_bricks", "terracotta", "cobblestone")
 FACING_CHANCE = 0.6     # дуэль: лицом друг к другу; иначе — куда попало (развернуться — тоже навык)
+
+# Прокопаться к кровати.
+DIG_ISLAND = 5          # полуразмер островка: 11 x 11
+DIG_LAYERS = (1, 2, 2)  # слоёв укрытия кровати: первый — шерсть, второй — доски
+DIG_WOOL = ("white_wool", "red_wool", "blue_wool", "lime_wool", "yellow_wool")
+BED_COLOR = "red"       # кровати на картах Hypixel все красные — других симуляция и не знает
+BED_FACINGS = {"south": (0, 1), "north": (0, -1), "east": (1, 0), "west": (-1, 0)}  # куда от ног голова
+
+# Мини-бедварс 1 на 1.
+MINI_ISLAND = 2         # полуразмер островка: 5 x 5
+MINI_GAP = (5, 10)      # пропасть между островками
+MINI_BLOCKS = ("stone_bricks", "sandstone", "terracotta", "cobblestone", "oak_planks")
 
 # Тропа ходьбы по краю.
 EDGE_LENGTH = (18, 30)  # клеток по оси тропы
@@ -181,6 +200,108 @@ class EdgeLayout:
 
     def describe(self) -> str:
         return f"тропа {self.length} шириной {self.width}, поворотов {self.turns}, уступов {self.steps}"
+
+
+def bed_commands(foot: tuple, facing: str, color: str) -> list[str]:
+    """Кровать — две команды setblock (ноги и голова, у каждой своё состояние):
+    fill одним блоком ставил бы две "ножные" половины, и игра их убрала бы."""
+    dx, dz = BED_FACINGS[facing]
+    x, y, z = foot
+    return [f"setblock {x} {y} {z} minecraft:{color}_bed[facing={facing},part=foot]",
+            f"setblock {x + dx} {y} {z + dz} minecraft:{color}_bed[facing={facing},part=head]"]
+
+
+class DigLayout:
+    """Прокопаться к кровати на дорожке lane: островок, в середине кровать под
+    куполом (клетки на "расстоянии" 1..layers от кровати — по горизонтали плюс
+    вверх: первый слой — шерсть, второй — доски). Укрытие помечено как
+    "поставленное игроком" (placed_box, /mcbot placed) — его можно ломать, как
+    в бедварсе; сам островок — нет. Старт — на краю островка, лицом куда попало."""
+
+    def __init__(self, lane: int, rng: random.Random):
+        self.lane = lane
+        self.x = lane_x(lane)
+        cz = DIG_ISLAND + 1
+        self.facing = rng.choice(tuple(BED_FACINGS))
+        self.color = BED_COLOR
+        self.layers = rng.choice(DIG_LAYERS)
+        dx, dz = BED_FACINGS[self.facing]
+        y = DRILL_Y + 1
+        self.foot = (self.x, y, cz)
+        self.head = (self.x + dx, y, cz + dz)
+        self.cells = [(self.x - DIG_ISLAND, DRILL_Y, cz - DIG_ISLAND, self.x + DIG_ISLAND, DRILL_Y, cz + DIG_ISLAND)]
+        self.block = "stone_bricks"  # островок: рукой не сломать, да и нельзя (не "поставлено")
+        wool = rng.choice(DIG_WOOL)
+        self.cover: list[tuple] = []
+        reach = self.layers + 1
+        for cx in range(self.x - reach, self.x + reach + 1):
+            for cz2 in range(cz - reach, cz + reach + 1):
+                for cy in range(y, y + self.layers + 1):
+                    if (cx, cy, cz2) in (self.foot, self.head):
+                        continue
+                    distance = min(abs(cx - hx) + abs(cz2 - hz) for hx, _, hz in (self.foot, self.head)) + (cy - y)
+                    if 1 <= distance <= self.layers:
+                        self.cover.append((cx, cy, cz2, wool if distance == 1 else "oak_planks"))
+        # Старт — на островке (не с края), но не вплотную к укрытию: клетки
+        # не ближе layers + 2 от ног кровати (по большей из осей).
+        starts = [(sx, sz) for sx in range(self.x - DIG_ISLAND + 1, self.x + DIG_ISLAND)
+                  for sz in range(cz - DIG_ISLAND + 1, cz + DIG_ISLAND)
+                  if max(abs(sx - self.x), abs(sz - cz)) >= self.layers + 2]
+        self.start_cell = rng.choice(starts)
+        self.start_yaw = 10 * rng.randint(-18, 17)
+
+    def start(self) -> tuple[float, float, float, int]:
+        sx, sz = self.start_cell
+        return (sx + 0.5, DRILL_Y + 1, sz + 0.5, self.start_yaw)
+
+    def bed(self) -> dict:
+        return {"head": list(self.head), "foot": list(self.foot)}
+
+    def fills(self) -> list[tuple]:
+        return [(*cell, self.block) for cell in self.cells] + [(x, y, z, x, y, z, block) for x, y, z, block in self.cover]
+
+    def commands(self) -> list[str]:
+        """Кроме fill: кровать и пометка укрытия "поставлено" (ломать можно)."""
+        x0, y0, z0 = (min(c[i] for c in self.cover) for i in range(3))
+        x1, y1, z1 = (max(c[i] for c in self.cover) for i in range(3))
+        return bed_commands(self.foot, self.facing, self.color) + [f"mcbot placed {{world}} {x0} {y0} {z0} {x1} {y1} {z1}"]
+
+    def describe(self) -> str:
+        return f"кровать под {self.layers} слоями"
+
+
+class MiniLayout:
+    """Мини-бедварс на дорожке lane: два островка 5 x 5 через пропасть, у
+    каждого в заднем ряду кровать (поперёк дорожки), точка появления — в
+    середине островка, лицом к сопернику."""
+
+    def __init__(self, lane: int, rng: random.Random):
+        self.lane = lane
+        self.x = lane_x(lane)
+        self.gap = rng.randint(*MINI_GAP)
+        self.block = rng.choice(MINI_BLOCKS)
+        near = MINI_ISLAND                                    # середина ближнего островка по z
+        far = 2 * MINI_ISLAND + 1 + self.gap + MINI_ISLAND    # ...дальнего
+        self.cells = [(self.x - MINI_ISLAND, DRILL_Y, near - MINI_ISLAND, self.x + MINI_ISLAND, DRILL_Y, near + MINI_ISLAND),
+                      (self.x - MINI_ISLAND, DRILL_Y, far - MINI_ISLAND, self.x + MINI_ISLAND, DRILL_Y, far + MINI_ISLAND)]
+        y = DRILL_Y + 1
+        # Кровати — в заднем ряду, поперёк дорожки (ноги слева, голова справа).
+        self.beds = [((self.x - 1, y, near - MINI_ISLAND), "east"), ((self.x + 1, y, far + MINI_ISLAND), "west")]
+        self.spawns = [(self.x + 0.5, y, near + 0.5, 0), (self.x + 0.5, y, far + 0.5, 180)]
+
+    def bed(self, side: int) -> dict:
+        foot, facing = self.beds[side]
+        dx, dz = BED_FACINGS[facing]
+        return {"head": [foot[0] + dx, foot[1], foot[2] + dz], "foot": list(foot)}
+
+    def fills(self) -> list[tuple]:
+        return [(*cell, self.block) for cell in self.cells]
+
+    def commands(self) -> list[str]:
+        return [command for foot, facing in self.beds for command in bed_commands(foot, facing, BED_COLOR)]
+
+    def describe(self) -> str:
+        return f"мини {self.gap}"
 
 
 def clear_fill(lane: int) -> tuple:

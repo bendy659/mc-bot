@@ -177,6 +177,31 @@ public final class McBotPlugin extends JavaPlugin {
                 sender.sendMessage("Упражнения: мир " + world.getName() + ", новых чанков " + loaded + " ("
                     + (System.currentTimeMillis() - started) + " мс).");
             }
+            case "placed" -> {
+                // Упражнение "прокопаться к кровати": укрытие кровати судья строит
+                // командами fill, а ломать в мирах бедварса можно только поставленное
+                // игроками — пометить блоки коробки как поставленные:
+                // /mcbot placed <мир> x0 y0 z0 x1 y1 z1.
+                if (args.length < 8) return false;
+                World world = Bukkit.getWorld(args[1]);
+                if (world == null) {
+                    sender.sendMessage("Нет мира " + args[1] + ".");
+                    return true;
+                }
+                int[] c = new int[6];
+                for (int i = 0; i < 6; i++) c[i] = Integer.parseInt(args[2 + i]);
+                int marked = bedwarsRules.markPlaced(world, c[0], c[1], c[2], c[3], c[4], c[5]);
+                sender.sendMessage("Поставленным помечено блоков: " + marked + ".");
+            }
+            case "unplace" -> {
+                // Дорожку упражнения перестраивают (fill): пометки "поставлено" на ней
+                // — прочь, иначе новая площадка на тех же клетках ломалась бы:
+                // /mcbot unplace <мир> x0 y0 z0 x1 y1 z1.
+                if (args.length < 8) return false;
+                int[] c = new int[6];
+                for (int i = 0; i < 6; i++) c[i] = Integer.parseInt(args[2 + i]);
+                bedwarsRules.unmark(args[1], c[0], c[1], c[2], c[3], c[4], c[5]);
+            }
             case "act" -> {
                 // Отладка: один набор действий боту без Python — /mcbot act AI_1 jump head_idle place_below
                 // [кого можно бить: ник] — /mcbot act AI_1 idle head_idle attack_center AI_2

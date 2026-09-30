@@ -35,6 +35,33 @@ final class BedwarsRules implements Listener {
         placed.remove(worldName);
     }
 
+    /** Блоки коробки (не воздух) — как поставленные игроками: их можно ломать. */
+    int markPlaced(org.bukkit.World world, int x0, int y0, int z0, int x1, int y1, int z1) {
+        Set<Long> set = placed.computeIfAbsent(world.getName(), name -> new HashSet<>());
+        int marked = 0;
+        for (int x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+            for (int y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) {
+                for (int z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
+                    Block block = world.getBlockAt(x, y, z);
+                    if (!block.getType().isAir() && set.add(key(block))) marked++;
+                }
+            }
+        }
+        return marked;
+    }
+
+    /** Пометки "поставлено" в коробке — прочь (дорожку упражнения перестраивают). */
+    void unmark(String worldName, int x0, int y0, int z0, int x1, int y1, int z1) {
+        Set<Long> set = placed.get(worldName);
+        if (set == null) return;
+        int ax = Math.min(x0, x1), bx = Math.max(x0, x1), ay = Math.min(y0, y1), by = Math.max(y0, y1);
+        int az = Math.min(z0, z1), bz = Math.max(z0, z1);
+        set.removeIf(key -> {
+            int x = (int) (key >> 38), z = (int) (key << 26 >> 38), y = (int) (key << 52 >> 52);
+            return ax <= x && x <= bx && ay <= y && y <= by && az <= z && z <= bz;
+        });
+    }
+
     private Set<Long> placedIn(Block block) {
         return placed.computeIfAbsent(block.getWorld().getName(), name -> new HashSet<>());
     }

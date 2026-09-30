@@ -233,8 +233,9 @@
             "start_blocks": 0, "team_size": 2, "defend_chance": 0.5, "game_seconds": 300, "restart_pause_seconds": 3, "fight_radius": 6,
             "hit_reward": 3.0, "bed_reward": 100.0, "kill_reward": 30.0, "bed_lost_penalty": -20.0,
             "win_reward": 100.0, "lose_penalty": -30.0, "death_penalty": -30.0,
-            "scenarios": {"game": 1, "duel": 2, "edge": 2}, "drill_seconds": 120, "duel_seconds": 30, "edge_seconds": 40,
-            "duel_win_reward": 30.0, "goal_reward": 30.0},
+            "scenarios": {"game": 1, "duel": 2, "edge": 1, "dig": 1, "mini": 2}, "drill_seconds": 120,
+            "duel_seconds": 30, "edge_seconds": 40, "dig_seconds": 40, "mini_seconds": 120, "mini_blocks": 48,
+            "mini_respawn_seconds": 3, "duel_win_reward": 30.0, "goal_reward": 30.0},
         "bridge": {
             "version": 1,
             "inputs": {"hearing": false, "entities": false, "strike": false, "charge": false, "route_open": false,

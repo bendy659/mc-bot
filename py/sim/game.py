@@ -957,6 +957,26 @@ class SimArena:
         if words[0] == "mcbot" and len(words) >= 2 and words[1] == "drill":
             self.load_drills()
             return
+        if words[0] == "mcbot" and len(words) == 9 and words[1] == "placed":
+            # Упражнение "прокопаться к кровати": укрытие — как поставленное игроками.
+            x1, y1, z1, x2, y2, z2 = map(int, words[3:9])
+            for x in range(min(x1, x2), max(x1, x2) + 1):
+                for y in range(min(y1, y2), max(y1, y2) + 1):
+                    for z in range(min(z1, z2), max(z1, z2) + 1):
+                        if self.world.block(x, y, z) != AIR:
+                            self.placed.add((x, y, z))
+            return
+        if words[0] == "mcbot" and len(words) == 9 and words[1] == "unplace":
+            x1, y1, z1, x2, y2, z2 = map(int, words[3:9])
+            self.placed = {cell for cell in self.placed
+                           if not all(min(a, b) <= c <= max(a, b) for c, a, b in zip(cell, (x1, y1, z1), (x2, y2, z2)))}
+            return
+        if words[0] == "setblock" and len(words) == 5:
+            # Кровать упражнений (две половины со своими состояниями) — в
+            # симуляции состояние половины не важно: форма и цвет те же.
+            name = words[4].split(":")[-1].split("[")[0]
+            self.world.set_block(int(words[1]), int(words[2]), int(words[3]), name)
+            return
         if words[0] == "gamemode" and len(words) == 3:
             # Бедварс: выбыл — зритель (вне игры), новая игра — снова в игре.
             for agent in self._named(words[2]):
