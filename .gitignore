@@ -1,26 +1,26 @@
 ## FOLDERS
 
 # ZCode (by z.ai)
-/.zcode
+/.zcode/*
 
 # Node cache
-/node_modules
+/node_modules/*
 
 # Python
-/py/__pycache__/
+__pycache__/*
 
 # Plugin
-/plugin/.gradle
-/plugin/build
+/plugin/.gradle/*
+/plugin/build/*
 
 # Local server
-/server
+/server/*
+!/server/bw_maps/
 
 # AI mind old
-/data/brains_old
-# Кэш Python во всех папках py/ (sim/, training_modules/)
-__pycache__/
+/data/brains_old/*
 
 ## FILES
 
 session.lock
+level.dat_old.gz
