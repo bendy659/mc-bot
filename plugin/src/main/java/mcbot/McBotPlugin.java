@@ -31,6 +31,7 @@ public final class McBotPlugin extends JavaPlugin {
     private Swarm swarm;
     private Commands commands;
     private TaskWorlds taskWorlds;
+    private BedwarsRules bedwarsRules;
 
     @Override
     public void onEnable() {
@@ -51,6 +52,8 @@ public final class McBotPlugin extends JavaPlugin {
         // mineflayer (js/bot.js) Python раздавал бы действия по кругу и Node,
         // и плагину — половина действий ботов терялась бы.
         Bukkit.getPluginManager().registerEvents(new McBotListener(this, swarm, commands), this);
+        bedwarsRules = new BedwarsRules(config.taskWorlds().get("bedwars"));
+        Bukkit.getPluginManager().registerEvents(bedwarsRules, this);
         Bukkit.getScheduler().runTaskTimer(this, () -> swarm.tick(), 1L, 1L);
     }
 
@@ -135,6 +138,7 @@ public final class McBotPlugin extends JavaPlugin {
                 long started = System.currentTimeMillis();
                 try {
                     World world = taskWorlds.loadMap("bedwars", regions);
+                    bedwarsRules.clear();
                     sender.sendMessage(world == null
                         ? "Карта не загружена: нет " + regions + " или мира задачки bedwars (bot.task_worlds)."
                         : "Карта " + map + " — в мире " + world.getName() + " (" + (System.currentTimeMillis() - started) + " мс).");
