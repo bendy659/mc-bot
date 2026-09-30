@@ -1,186 +1,112 @@
-[11:42:39] [ServerMain/INFO]: [bootstrap] Running Java 25 (Java HotSpot(TM) 64-Bit Server VM 25.0.2+10-LTS-69; Oracle Corporation null) on Windows 11 10.0 (amd64)
-[11:42:39] [ServerMain/INFO]: [bootstrap] Loading Paper 26.1.2-74-ver/26.1.2@e4e17fc (2026-07-06T16:51:09Z) for Minecraft 26.1.2
-[11:42:40] [ServerMain/INFO]: [PluginInitializerManager] Initializing plugins...
-[11:42:40] [ServerMain/INFO]: [PluginInitializerManager] Initialized 1 plugin
-[11:42:40] [ServerMain/INFO]: [PluginInitializerManager] Bukkit plugins (1):
+[13:40:31] [ServerMain/INFO]: [bootstrap] Running Java 25 (Java HotSpot(TM) 64-Bit Server VM 25.0.2+10-LTS-69; Oracle Corporation null) on Windows 11 10.0 (amd64)
+[13:40:31] [ServerMain/INFO]: [bootstrap] Loading Paper 26.1.2-74-ver/26.1.2@e4e17fc (2026-07-06T16:51:09Z) for Minecraft 26.1.2
+[13:40:32] [ServerMain/INFO]: [PluginInitializerManager] Initializing plugins...
+[13:40:33] [ServerMain/INFO]: [PluginInitializerManager] Initialized 1 plugin
+[13:40:33] [ServerMain/INFO]: [PluginInitializerManager] Bukkit plugins (1):
  - McBot (0.1.0)
-[11:42:43] [ServerMain/INFO]: Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, profilesHost=https://api.mojang.com, name=PROD]
-[11:42:45] [ServerMain/INFO]: Loaded 1515 recipes
-[11:42:45] [ServerMain/INFO]: Loaded 1617 advancements
-[11:42:45] [ServerMain/INFO]: [ca.spottedleaf.dataconverter.minecraft.datatypes.MCTypeRegistry] Initialising converters for DataConverter...
-[11:42:45] [ServerMain/INFO]: [ca.spottedleaf.dataconverter.minecraft.datatypes.MCTypeRegistry] Finished initialising converters for DataConverter in 311,8ms
-[11:42:45] [Server thread/INFO]: Starting minecraft server version 26.1.2
-[11:42:45] [Server thread/INFO]: Loading properties
-[11:42:45] [Server thread/INFO]: This server is running Paper version 26.1.2-74-ver/26.1.2@e4e17fc (2026-07-06T16:51:09Z) (Implementing API version 26.1.2.build.74-stable)
-[11:42:45] [Server thread/INFO]: [spark] This server bundles the spark profiler. For more information please visit https://docs.papermc.io/paper/profiling
-[11:42:45] [Server thread/INFO]: Server Ping Player Sample Count: 12
-[11:42:45] [Server thread/INFO]: Using 4 threads for Netty based IO
-[11:42:45] [Server thread/INFO]: [MoonriseCommon] Paper is using 4 worker threads, 1 I/O threads
-[11:42:46] [Server thread/INFO]: Default game type: SURVIVAL
-[11:42:46] [Server thread/INFO]: Generating keypair
-[11:42:46] [Server thread/INFO]: Starting Minecraft server on 127.0.0.1:25566
-[11:42:46] [Server thread/INFO]: Paper: Using Java compression from Velocity.
-[11:42:46] [Server thread/INFO]: Paper: Using Java cipher from Velocity.
-[11:42:46] [Server thread/INFO]: [SpigotLibraryLoader] [McBot] Loading 1 libraries... please wait
-[11:42:46] [Server thread/INFO]: [SpigotLibraryLoader] [McBot] Loaded library C:\Users\denis\mc-bot\server\libraries\org\zeromq\jeromq\0.6.0\jeromq-0.6.0.jar
-[11:42:46] [Server thread/INFO]: [SpigotLibraryLoader] [McBot] Loaded library C:\Users\denis\mc-bot\server\libraries\eu\neilalexander\jnacl\1.0.0\jnacl-1.0.0.jar
-[11:42:46] [Server thread/INFO]: [McBot] Loading server plugin McBot v0.1.0
-[11:42:46] [Server thread/INFO]: Server permissions file permissions.yml is empty, ignoring it
-[11:42:46] [Server thread/WARN]: **** SERVER IS RUNNING IN OFFLINE/INSECURE MODE!
-[11:42:46] [Server thread/WARN]: The server will make no attempt to authenticate usernames. Beware.
-[11:42:46] [Server thread/WARN]: While this makes the game possible to play without internet access, it also opens up the ability for hackers to connect with any username they choose.
-[11:42:46] [Server thread/WARN]: To change this, set "online-mode" to "true" in the server.properties file.
-[11:42:46] [Server thread/INFO]: Preparing level "world"
-[11:42:46] [Server thread/INFO]: Loading 100 persistent chunks for level 'minecraft:overworld'...
-[11:42:46] [Server thread/INFO]: Preparing spawn area: 9%
-[11:42:47] [Server thread/INFO]: Prepared spawn area in 467 ms
-[11:42:47] [Server thread/INFO]: Loading 0 persistent chunks for level 'minecraft:the_nether'...
-[11:42:47] [Server thread/INFO]: Preparing spawn area: 100%
-[11:42:47] [Server thread/INFO]: Prepared spawn area in 1 ms
-[11:42:47] [Server thread/INFO]: Loading 0 persistent chunks for level 'minecraft:the_end'...
-[11:42:47] [Server thread/INFO]: Prepared spawn area in 1 ms
-[11:42:47] [Server thread/INFO]: Done preparing level "world" (1.009s)
-[11:42:47] [Server thread/INFO]: [McBot] Enabling McBot v0.1.0
-[11:42:47] [Server thread/INFO]: [McBot] Конфиг проекта: C:\Users\denis\mc-bot\config.json
-[11:42:47] [Server thread/INFO]: Loading 77 persistent chunks for level 'minecraft:mcbot_bridge'...
-[11:42:47] [Server thread/INFO]: Preparing spawn area: 11%
-[11:42:47] [Server thread/INFO]: Prepared spawn area in 127 ms
-[11:42:47] [Server thread/INFO]: [McBot] Мир задачки bridge: mcbot_bridge (minecraft:mcbot_bridge)
-[11:42:47] [Server thread/INFO]: [spark] Starting background profiler...
-[11:42:47] [Server thread/INFO]: [spark] The async-profiler engine is not supported for your os/arch (windows11/amd64), so the built-in Java engine will be used instead.
-[11:42:47] [Server thread/INFO]: Starting remote control listener
-[11:42:47] [Server thread/INFO]: Thread RCON Listener started
-[11:42:47] [Server thread/INFO]: RCON running on 127.0.0.1:25576
-[11:42:47] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:overworld
-[11:42:48] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:the_nether
-[11:42:48] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:the_end
-[11:42:48] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:mcbot_bridge
-[11:42:48] [Server thread/INFO]: ThreadedAnvilChunkStorage (world): All chunks are saved
-[11:42:48] [Server thread/INFO]: ThreadedAnvilChunkStorage (DIM-1): All chunks are saved
-[11:42:48] [Server thread/INFO]: ThreadedAnvilChunkStorage (DIM1): All chunks are saved
-[11:42:48] [Server thread/INFO]: ThreadedAnvilChunkStorage (mcbot_bridge): All chunks are saved
-[11:42:48] [Server thread/INFO]: ThreadedAnvilChunkStorage: All dimensions are saved
-[11:42:48] [Server thread/INFO]: Running delayed init tasks
-[11:42:48] [Server thread/INFO]: Done (9.059s)! For help, type "help"
-[11:42:50] [Paper Async Task Handler Thread - 1/WARN]: *************************************************************************************
-[11:42:50] [Paper Async Task Handler Thread - 1/WARN]: You are running the latest build for your Minecraft version (26.1.2)
-[11:42:50] [Paper Async Task Handler Thread - 1/WARN]: However, you are 2 release(s) behind the latest stable release (26.2)!
-[11:42:50] [Paper Async Task Handler Thread - 1/WARN]: It is recommended that you update as soon as possible
-[11:42:50] [Paper Async Task Handler Thread - 1/WARN]: https://papermc.io/downloads/paper
-[11:42:50] [Paper Async Task Handler Thread - 1/WARN]: *************************************************************************************
-[11:43:08] [RCON Listener #1/INFO]: Thread RCON Client /127.0.0.1 started
-[11:43:10] [User Authenticator #0/INFO]: UUID of player _BENDY659_ is 4ef31454-e82d-339b-9040-91a42b600841
-[11:43:11] [RCON Listener #1/INFO]: Thread RCON Client /127.0.0.1 started
-[11:43:11] [Server thread/INFO]: [McBot] Связь с Python: состояния -> :5555, действия <- :5556
-[11:43:11] [Server thread/INFO]: Лев [AI_1] joined the game
-[11:43:11] [Server thread/INFO]: AI_1[/127.0.0.1:0] logged in with entity id 11 at ([minecraft:overworld]0.5, -60.0, 0.5)
-[11:43:11] [Server thread/INFO]: [McBot] Бот AI_1 зашёл: (0,5, -60,0, 0,5)
-[11:43:11] [Server thread/INFO]: Иван [AI_2] joined the game
-[11:43:11] [Server thread/INFO]: AI_2[/127.0.0.1:0] logged in with entity id 12 at ([minecraft:overworld]0.5, -60.0, 0.5)
-[11:43:11] [Server thread/INFO]: [McBot] Бот AI_2 зашёл: (0,5, -60,0, 0,5)
-[11:43:11] [Server thread/INFO]: Полина [AI_3] joined the game
-[11:43:11] [Server thread/INFO]: AI_3[/127.0.0.1:0] logged in with entity id 13 at ([minecraft:overworld]0.5, -60.0, 0.5)
-[11:43:11] [Server thread/INFO]: [McBot] Бот AI_3 зашёл: (0,5, -60,0, 0,5)
-[11:43:12] [Server thread/INFO]: Виктория [AI_4] joined the game
-[11:43:12] [Server thread/INFO]: AI_4[/127.0.0.1:0] logged in with entity id 14 at ([minecraft:overworld]0.5, -60.0, 0.5)
-[11:43:12] [Server thread/INFO]: [McBot] Бот AI_4 зашёл: (0,5, -60,0, 0,5)
-[11:43:12] [Server thread/INFO]: Никита [AI_5] joined the game
-[11:43:12] [Server thread/INFO]: AI_5[/127.0.0.1:0] logged in with entity id 15 at ([minecraft:overworld]0.5, -60.0, 0.5)
-[11:43:12] [Server thread/INFO]: [McBot] Бот AI_5 зашёл: (0,5, -60,0, 0,5)
-[11:43:12] [Server thread/INFO]: Ксения [AI_6] joined the game
-[11:43:12] [Server thread/INFO]: AI_6[/127.0.0.1:0] logged in with entity id 16 at ([minecraft:overworld]0.5, -60.0, 0.5)
-[11:43:12] [Server thread/INFO]: [McBot] Бот AI_6 зашёл: (0,5, -60,0, 0,5)
-[11:43:12] [Server thread/INFO]: Екатерина [AI_7] joined the game
-[11:43:12] [Server thread/INFO]: AI_7[/127.0.0.1:0] logged in with entity id 17 at ([minecraft:overworld]0.5, -60.0, 0.5)
-[11:43:12] [Server thread/INFO]: [McBot] Бот AI_7 зашёл: (0,5, -60,0, 0,5)
-[11:43:12] [Server thread/INFO]: Павел [AI_8] joined the game
-[11:43:12] [Server thread/INFO]: AI_8[/127.0.0.1:0] logged in with entity id 18 at ([minecraft:overworld]0.5, -60.0, 0.5)
-[11:43:12] [Server thread/INFO]: [McBot] Бот AI_8 зашёл: (0,5, -60,0, 0,5)
-[11:43:12] [Server thread/INFO]: Алексей [AI_9] joined the game
-[11:43:12] [Server thread/INFO]: AI_9[/127.0.0.1:0] logged in with entity id 19 at ([minecraft:overworld]0.5, -60.0, 0.5)
-[11:43:12] [Server thread/INFO]: [McBot] Бот AI_9 зашёл: (0,5, -60,0, 0,5)
-[11:43:12] [Server thread/INFO]: Сергей [AI_10] joined the game
-[11:43:12] [Server thread/INFO]: AI_10[/127.0.0.1:0] logged in with entity id 20 at ([minecraft:overworld]0.5, -60.0, 0.5)
-[11:43:12] [Server thread/INFO]: [McBot] Бот AI_10 зашёл: (0,5, -60,0, 0,5)
-[11:43:12] [Server thread/INFO]: Фёдор [AI_11] joined the game
-[11:43:12] [Server thread/INFO]: AI_11[/127.0.0.1:0] logged in with entity id 21 at ([minecraft:overworld]0.5, -60.0, 0.5)
-[11:43:12] [Server thread/INFO]: [McBot] Бот AI_11 зашёл: (0,5, -60,0, 0,5)
-[11:43:12] [Server thread/INFO]: Ева [AI_12] joined the game
-[11:43:12] [Server thread/INFO]: AI_12[/127.0.0.1:0] logged in with entity id 22 at ([minecraft:overworld]0.5, -60.0, 0.5)
-[11:43:12] [Server thread/INFO]: [McBot] Бот AI_12 зашёл: (0,5, -60,0, 0,5)
-[11:43:12] [RCON Client /127.0.0.1 #3/INFO]: Thread RCON Client /127.0.0.1 shutting down
-[11:43:12] [Server thread/INFO]: _BENDY659_ joined the game
-[11:43:12] [Server thread/INFO]: _BENDY659_[/127.0.0.1:61914] logged in with entity id 23 at ([minecraft:mcbot_bridge]86.95139318593577, 67.16447298150266, 7.004258099684513)
-[11:45:37] [Async Chat Thread - #0/INFO]: [Not Secure] <_BENDY659_> дура.
-[11:46:26] [Async Chat Thread - #0/INFO]: [Not Secure] <_BENDY659_> ну как обычной - ластовый полный овощ
-[11:47:03] [RCON Listener #1/INFO]: Thread RCON Client /127.0.0.1 started
-[11:47:03] [Server thread/INFO]: AI_1 lost connection: mc-bot: бот выключен
-[11:47:03] [Server thread/INFO]: Лев [AI_1] left the game
-[11:47:03] [Server thread/INFO]: AI_2 lost connection: mc-bot: бот выключен
-[11:47:03] [Server thread/INFO]: Иван [AI_2] left the game
-[11:47:03] [Server thread/INFO]: AI_3 lost connection: mc-bot: бот выключен
-[11:47:03] [Server thread/INFO]: Полина [AI_3] left the game
-[11:47:03] [Server thread/INFO]: AI_4 lost connection: mc-bot: бот выключен
-[11:47:03] [Server thread/INFO]: Виктория [AI_4] left the game
-[11:47:03] [Server thread/INFO]: AI_5 lost connection: mc-bot: бот выключен
-[11:47:03] [Server thread/INFO]: Никита [AI_5] left the game
-[11:47:03] [Server thread/INFO]: AI_6 lost connection: mc-bot: бот выключен
-[11:47:03] [Server thread/INFO]: Ксения [AI_6] left the game
-[11:47:03] [Server thread/INFO]: AI_7 lost connection: mc-bot: бот выключен
-[11:47:03] [Server thread/INFO]: Екатерина [AI_7] left the game
-[11:47:03] [Server thread/INFO]: AI_8 lost connection: mc-bot: бот выключен
-[11:47:03] [Server thread/INFO]: Павел [AI_8] left the game
-[11:47:03] [Server thread/INFO]: AI_9 lost connection: mc-bot: бот выключен
-[11:47:03] [Server thread/INFO]: Алексей [AI_9] left the game
-[11:47:03] [Server thread/INFO]: AI_10 lost connection: mc-bot: бот выключен
-[11:47:03] [Server thread/INFO]: Сергей [AI_10] left the game
-[11:47:03] [Server thread/INFO]: AI_11 lost connection: mc-bot: бот выключен
-[11:47:03] [Server thread/INFO]: Фёдор [AI_11] left the game
-[11:47:03] [Server thread/INFO]: AI_12 lost connection: mc-bot: бот выключен
-[11:47:03] [Server thread/INFO]: Ева [AI_12] left the game
-[11:47:03] [RCON Client /127.0.0.1 #4/INFO]: Thread RCON Client /127.0.0.1 shutting down
-[11:47:03] [RCON Client /127.0.0.1 #2/INFO]: Thread RCON Client /127.0.0.1 shutting down
-[11:47:04] [Server thread/INFO]: Stopping the server
-[11:47:04] [Server thread/INFO]: Stopping server
-[11:47:04] [Server thread/INFO]: [McBot] Disabling McBot v0.1.0
-[11:47:04] [Server thread/INFO]: Saving players
-[11:47:04] [Server thread/INFO]: _BENDY659_ lost connection: Server closed
-[11:47:04] [Server thread/INFO]: _BENDY659_ left the game
-[11:47:05] [Server thread/INFO]: Saving worlds
-[11:47:05] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:overworld
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk system to halt for world 'minecraft:overworld'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Halted chunk system for world 'minecraft:overworld'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Saving all chunkholders for world 'minecraft:overworld'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Saved 189 block chunks, 198 entity chunks, 0 poi chunks in world 'minecraft:overworld' in 0,04s
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk I/O to halt for world 'minecraft:overworld'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Halted I/O scheduler for world 'minecraft:overworld'
-[11:47:05] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:the_nether
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk system to halt for world 'minecraft:the_nether'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Halted chunk system for world 'minecraft:the_nether'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Saving all chunkholders for world 'minecraft:the_nether'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Saved 0 block chunks, 0 entity chunks, 0 poi chunks in world 'minecraft:the_nether' in 0,00s
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk I/O to halt for world 'minecraft:the_nether'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Halted I/O scheduler for world 'minecraft:the_nether'
-[11:47:05] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:the_end
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk system to halt for world 'minecraft:the_end'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Halted chunk system for world 'minecraft:the_end'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Saving all chunkholders for world 'minecraft:the_end'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Saved 0 block chunks, 0 entity chunks, 0 poi chunks in world 'minecraft:the_end' in 0,00s
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk I/O to halt for world 'minecraft:the_end'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Halted I/O scheduler for world 'minecraft:the_end'
-[11:47:05] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:mcbot_bridge
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk system to halt for world 'minecraft:mcbot_bridge'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Halted chunk system for world 'minecraft:mcbot_bridge'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Saving all chunkholders for world 'minecraft:mcbot_bridge'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Saved 2033 block chunks, 525 entity chunks, 0 poi chunks in world 'minecraft:mcbot_bridge' in 0,25s
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk I/O to halt for world 'minecraft:mcbot_bridge'
-[11:47:05] [Server thread/INFO]: [ChunkHolderManager] Halted I/O scheduler for world 'minecraft:mcbot_bridge'
-[11:47:05] [Server thread/INFO]: ThreadedAnvilChunkStorage (world): All chunks are saved
-[11:47:05] [Server thread/INFO]: ThreadedAnvilChunkStorage (DIM-1): All chunks are saved
-[11:47:05] [Server thread/INFO]: ThreadedAnvilChunkStorage (DIM1): All chunks are saved
-[11:47:05] [Server thread/INFO]: ThreadedAnvilChunkStorage (mcbot_bridge): All chunks are saved
-[11:47:05] [Server thread/INFO]: ThreadedAnvilChunkStorage: All dimensions are saved
-[11:47:05] [Server thread/INFO]: Waiting for all RegionFile I/O tasks to complete...
-[11:47:05] [Server thread/INFO]: All RegionFile I/O tasks to complete
-[11:47:05] [Server thread/INFO]: [MoonriseCommon] Awaiting termination of worker pool for up to 60s...
-[11:47:05] [Server thread/INFO]: [MoonriseCommon] Awaiting termination of I/O pool for up to 60s...
+[13:40:36] [ServerMain/INFO]: Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, profilesHost=https://api.mojang.com, name=PROD]
+[13:40:37] [ServerMain/INFO]: Loaded 1515 recipes
+[13:40:37] [ServerMain/INFO]: Loaded 1617 advancements
+[13:40:37] [ServerMain/INFO]: [ca.spottedleaf.dataconverter.minecraft.datatypes.MCTypeRegistry] Initialising converters for DataConverter...
+[13:40:37] [ServerMain/INFO]: [ca.spottedleaf.dataconverter.minecraft.datatypes.MCTypeRegistry] Finished initialising converters for DataConverter in 294,0ms
+[13:40:37] [Server thread/INFO]: Starting minecraft server version 26.1.2
+[13:40:37] [Server thread/INFO]: Loading properties
+[13:40:38] [Server thread/INFO]: This server is running Paper version 26.1.2-74-ver/26.1.2@e4e17fc (2026-07-06T16:51:09Z) (Implementing API version 26.1.2.build.74-stable)
+[13:40:38] [Server thread/INFO]: [spark] This server bundles the spark profiler. For more information please visit https://docs.papermc.io/paper/profiling
+[13:40:38] [Server thread/INFO]: Using 4 threads for Netty based IO
+[13:40:38] [Server thread/INFO]: Server Ping Player Sample Count: 12
+[13:40:38] [Server thread/INFO]: [MoonriseCommon] Paper is using 4 worker threads, 1 I/O threads
+[13:40:38] [Server thread/INFO]: Default game type: SURVIVAL
+[13:40:38] [Server thread/INFO]: Generating keypair
+[13:40:38] [Server thread/INFO]: Starting Minecraft server on 127.0.0.1:25566
+[13:40:38] [Server thread/INFO]: Paper: Using Java compression from Velocity.
+[13:40:38] [Server thread/INFO]: Paper: Using Java cipher from Velocity.
+[13:40:38] [Server thread/INFO]: [SpigotLibraryLoader] [McBot] Loading 1 libraries... please wait
+[13:40:38] [Server thread/INFO]: [SpigotLibraryLoader] [McBot] Loaded library C:\Users\denis\mc-bot\server\libraries\org\zeromq\jeromq\0.6.0\jeromq-0.6.0.jar
+[13:40:38] [Server thread/INFO]: [SpigotLibraryLoader] [McBot] Loaded library C:\Users\denis\mc-bot\server\libraries\eu\neilalexander\jnacl\1.0.0\jnacl-1.0.0.jar
+[13:40:38] [Server thread/INFO]: [McBot] Loading server plugin McBot v0.1.0
+[13:40:38] [Server thread/INFO]: Server permissions file permissions.yml is empty, ignoring it
+[13:40:38] [Server thread/WARN]: **** SERVER IS RUNNING IN OFFLINE/INSECURE MODE!
+[13:40:38] [Server thread/WARN]: The server will make no attempt to authenticate usernames. Beware.
+[13:40:38] [Server thread/WARN]: While this makes the game possible to play without internet access, it also opens up the ability for hackers to connect with any username they choose.
+[13:40:38] [Server thread/WARN]: To change this, set "online-mode" to "true" in the server.properties file.
+[13:40:38] [Server thread/INFO]: Preparing level "world"
+[13:40:39] [Server thread/INFO]: Loading 100 persistent chunks for level 'minecraft:overworld'...
+[13:40:39] [Server thread/INFO]: Preparing spawn area: 9%
+[13:40:40] [Server thread/INFO]: Prepared spawn area in 562 ms
+[13:40:40] [Server thread/INFO]: Loading 0 persistent chunks for level 'minecraft:the_nether'...
+[13:40:40] [Server thread/INFO]: Prepared spawn area in 1 ms
+[13:40:40] [Server thread/INFO]: Loading 0 persistent chunks for level 'minecraft:the_end'...
+[13:40:40] [Server thread/INFO]: Prepared spawn area in 1 ms
+[13:40:40] [Server thread/INFO]: Done preparing level "world" (1.151s)
+[13:40:40] [Server thread/INFO]: [McBot] Enabling McBot v0.1.0
+[13:40:40] [Server thread/INFO]: [McBot] Конфиг проекта: C:\Users\denis\mc-bot\config.json
+[13:40:40] [Server thread/INFO]: Loading 140 persistent chunks for level 'minecraft:mcbot_bridge'...
+[13:40:40] [Server thread/INFO]: Preparing spawn area: 6%
+[13:40:40] [Server thread/INFO]: Prepared spawn area in 206 ms
+[13:40:40] [Server thread/INFO]: [McBot] Мир задачки bridge: mcbot_bridge (minecraft:mcbot_bridge)
+[13:40:40] [Server thread/INFO]: [spark] Starting background profiler...
+[13:40:40] [Server thread/INFO]: [spark] The async-profiler engine is not supported for your os/arch (windows11/amd64), so the built-in Java engine will be used instead.
+[13:40:40] [Server thread/INFO]: Starting remote control listener
+[13:40:40] [Server thread/INFO]: Thread RCON Listener started
+[13:40:40] [Server thread/INFO]: RCON running on 127.0.0.1:25576
+[13:40:40] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:overworld
+[13:40:40] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:the_nether
+[13:40:41] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:the_end
+[13:40:41] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:mcbot_bridge
+[13:40:41] [Server thread/INFO]: ThreadedAnvilChunkStorage (world): All chunks are saved
+[13:40:41] [Server thread/INFO]: ThreadedAnvilChunkStorage (DIM-1): All chunks are saved
+[13:40:41] [Server thread/INFO]: ThreadedAnvilChunkStorage (DIM1): All chunks are saved
+[13:40:41] [Server thread/INFO]: ThreadedAnvilChunkStorage (mcbot_bridge): All chunks are saved
+[13:40:41] [Server thread/INFO]: ThreadedAnvilChunkStorage: All dimensions are saved
+[13:40:41] [Server thread/INFO]: Running delayed init tasks
+[13:40:41] [Server thread/INFO]: Done (9.966s)! For help, type "help"
+[13:40:43] [Paper Async Task Handler Thread - 1/WARN]: *************************************************************************************
+[13:40:43] [Paper Async Task Handler Thread - 1/WARN]: You are running the latest build for your Minecraft version (26.1.2)
+[13:40:43] [Paper Async Task Handler Thread - 1/WARN]: However, you are 2 release(s) behind the latest stable release (26.2)!
+[13:40:43] [Paper Async Task Handler Thread - 1/WARN]: It is recommended that you update as soon as possible
+[13:40:43] [Paper Async Task Handler Thread - 1/WARN]: https://papermc.io/downloads/paper
+[13:40:43] [Paper Async Task Handler Thread - 1/WARN]: *************************************************************************************
+[13:41:02] [User Authenticator #0/INFO]: UUID of player _BENDY659_ is 4ef31454-e82d-339b-9040-91a42b600841
+[13:41:02] [Server thread/INFO]: _BENDY659_ joined the game
+[13:41:02] [Server thread/INFO]: _BENDY659_[/127.0.0.1:56708] logged in with entity id 11 at ([minecraft:mcbot_bridge]145.0370292718171, 81.01044653663706, 23.567825676490944)
+[13:41:10] [RCON Listener #1/INFO]: Thread RCON Client /127.0.0.1 started
+[13:41:19] [RCON Listener #1/INFO]: Thread RCON Client /127.0.0.1 started
+[13:41:19] [Server thread/INFO]: [McBot] Связь с Python: состояния -> :5555, действия <- :5556
+[13:41:19] [Server thread/INFO]: Максим [AI_1] joined the game
+[13:41:19] [Server thread/INFO]: AI_1[/127.0.0.1:0] logged in with entity id 12 at ([minecraft:overworld]0.5, -60.0, 0.5)
+[13:41:19] [Server thread/INFO]: [McBot] Бот AI_1 зашёл: (0,5, -60,0, 0,5)
+[13:41:19] [Server thread/INFO]: Сергей [AI_2] joined the game
+[13:41:19] [Server thread/INFO]: AI_2[/127.0.0.1:0] logged in with entity id 13 at ([minecraft:overworld]0.5, -60.0, 0.5)
+[13:41:19] [Server thread/INFO]: [McBot] Бот AI_2 зашёл: (0,5, -60,0, 0,5)
+[13:41:20] [Server thread/INFO]: Дмитрий [AI_3] joined the game
+[13:41:20] [Server thread/INFO]: AI_3[/127.0.0.1:0] logged in with entity id 14 at ([minecraft:overworld]0.5, -60.0, 0.5)
+[13:41:20] [Server thread/INFO]: [McBot] Бот AI_3 зашёл: (0,5, -60,0, 0,5)
+[13:41:20] [Server thread/INFO]: Анна [AI_4] joined the game
+[13:41:20] [Server thread/INFO]: AI_4[/127.0.0.1:0] logged in with entity id 15 at ([minecraft:overworld]0.5, -60.0, 0.5)
+[13:41:20] [Server thread/INFO]: [McBot] Бот AI_4 зашёл: (0,5, -60,0, 0,5)
+[13:41:20] [Server thread/INFO]: Андрей [AI_5] joined the game
+[13:41:20] [Server thread/INFO]: AI_5[/127.0.0.1:0] logged in with entity id 16 at ([minecraft:overworld]0.5, -60.0, 0.5)
+[13:41:20] [Server thread/INFO]: [McBot] Бот AI_5 зашёл: (0,5, -60,0, 0,5)
+[13:41:20] [Server thread/INFO]: Софья [AI_6] joined the game
+[13:41:20] [Server thread/INFO]: AI_6[/127.0.0.1:0] logged in with entity id 17 at ([minecraft:overworld]0.5, -60.0, 0.5)
+[13:41:20] [Server thread/INFO]: [McBot] Бот AI_6 зашёл: (0,5, -60,0, 0,5)
+[13:41:20] [Server thread/INFO]: Степан [AI_7] joined the game
+[13:41:20] [Server thread/INFO]: AI_7[/127.0.0.1:0] logged in with entity id 18 at ([minecraft:overworld]0.5, -60.0, 0.5)
+[13:41:20] [Server thread/INFO]: [McBot] Бот AI_7 зашёл: (0,5, -60,0, 0,5)
+[13:41:20] [Server thread/INFO]: Полина [AI_8] joined the game
+[13:41:20] [Server thread/INFO]: AI_8[/127.0.0.1:0] logged in with entity id 19 at ([minecraft:overworld]0.5, -60.0, 0.5)
+[13:41:20] [Server thread/INFO]: [McBot] Бот AI_8 зашёл: (0,5, -60,0, 0,5)
+[13:41:20] [Server thread/INFO]: Екатерина [AI_9] joined the game
+[13:41:20] [Server thread/INFO]: AI_9[/127.0.0.1:0] logged in with entity id 20 at ([minecraft:overworld]0.5, -60.0, 0.5)
+[13:41:20] [Server thread/INFO]: [McBot] Бот AI_9 зашёл: (0,5, -60,0, 0,5)
+[13:41:20] [Server thread/INFO]: Вера [AI_10] joined the game
+[13:41:20] [Server thread/INFO]: AI_10[/127.0.0.1:0] logged in with entity id 21 at ([minecraft:overworld]0.5, -60.0, 0.5)
+[13:41:20] [Server thread/INFO]: [McBot] Бот AI_10 зашёл: (0,5, -60,0, 0,5)
+[13:41:20] [Server thread/INFO]: Глеб [AI_11] joined the game
+[13:41:20] [Server thread/INFO]: AI_11[/127.0.0.1:0] logged in with entity id 22 at ([minecraft:overworld]0.5, -60.0, 0.5)
+[13:41:20] [Server thread/INFO]: [McBot] Бот AI_11 зашёл: (0,5, -60,0, 0,5)
+[13:41:20] [Server thread/INFO]: Иван [AI_12] joined the game
+[13:41:20] [Server thread/INFO]: AI_12[/127.0.0.1:0] logged in with entity id 23 at ([minecraft:overworld]0.5, -60.0, 0.5)
+[13:41:20] [Server thread/INFO]: [McBot] Бот AI_12 зашёл: (0,5, -60,0, 0,5)
+[13:41:20] [RCON Client /127.0.0.1 #3/INFO]: Thread RCON Client /127.0.0.1 shutting down

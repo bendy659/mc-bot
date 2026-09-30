@@ -1,6 +1,6 @@
 {
   "stats": {
-    "minecraft:picked_up": {
+    "minecraft:mined": {
       "minecraft:dirt": 16
     },
     "minecraft:used": {
@@ -25,32 +25,32 @@
     "minecraft:dropped": {
       "minecraft:dirt": 2
     },
-    "minecraft:custom": {
-      "minecraft:interact_with_crafting_table": 11,
-      "minecraft:time_since_rest": 45201,
-      "minecraft:walk_one_cm": 135294,
-      "minecraft:leave_game": 5,
-      "minecraft:damage_taken": 10547,
-      "minecraft:damage_dealt": 6837,
-      "minecraft:play_time": 112229,
-      "minecraft:jump": 950,
-      "minecraft:time_since_death": 45200,
-      "minecraft:drop": 2,
-      "minecraft:sprint_one_cm": 84828,
-      "minecraft:fall_one_cm": 16276,
-      "minecraft:total_world_time": 112229,
-      "minecraft:fly_one_cm": 534361,
-      "minecraft:walk_on_water_one_cm": 40,
-      "minecraft:crouch_one_cm": 19358,
-      "minecraft:sneak_time": 6736,
-      "minecraft:deaths": 11,
-      "minecraft:player_kills": 32
-    },
-    "minecraft:mined": {
+    "minecraft:picked_up": {
       "minecraft:dirt": 16
     },
     "minecraft:killed_by": {
       "minecraft:player": 11
+    },
+    "minecraft:custom": {
+      "minecraft:interact_with_crafting_table": 11,
+      "minecraft:time_since_rest": 51201,
+      "minecraft:walk_one_cm": 135623,
+      "minecraft:leave_game": 5,
+      "minecraft:damage_taken": 10547,
+      "minecraft:damage_dealt": 6837,
+      "minecraft:play_time": 118229,
+      "minecraft:jump": 950,
+      "minecraft:time_since_death": 51200,
+      "minecraft:drop": 2,
+      "minecraft:sprint_one_cm": 84828,
+      "minecraft:fall_one_cm": 16276,
+      "minecraft:total_world_time": 118229,
+      "minecraft:fly_one_cm": 597124,
+      "minecraft:walk_on_water_one_cm": 40,
+      "minecraft:crouch_one_cm": 19361,
+      "minecraft:sneak_time": 6831,
+      "minecraft:deaths": 11,
+      "minecraft:player_kills": 32
     }
   },
   "DataVersion": 4790

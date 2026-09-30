@@ -2,26 +2,26 @@
   "stats": {
     "minecraft:used": {
       "minecraft:wooden_sword": 1,
-      "minecraft:dirt": 806
-    },
-    "minecraft:custom": {
-      "minecraft:time_since_rest": 55439,
-      "minecraft:total_world_time": 108852,
-      "minecraft:leave_game": 5,
-      "minecraft:damage_taken": 3397,
-      "minecraft:sneak_time": 20998,
-      "minecraft:play_time": 108852,
-      "minecraft:damage_dealt": 242,
-      "minecraft:deaths": 5,
-      "minecraft:jump": 1357,
-      "minecraft:time_since_death": 55419
-    },
-    "minecraft:killed_by": {
-      "minecraft:player": 5
+      "minecraft:dirt": 1071
     },
     "minecraft:mined": {
       "minecraft:dirt": 1,
       "minecraft:grass_block": 1
+    },
+    "minecraft:killed_by": {
+      "minecraft:player": 5
+    },
+    "minecraft:custom": {
+      "minecraft:time_since_rest": 61439,
+      "minecraft:total_world_time": 114852,
+      "minecraft:leave_game": 5,
+      "minecraft:damage_taken": 3397,
+      "minecraft:sneak_time": 25799,
+      "minecraft:play_time": 114852,
+      "minecraft:damage_dealt": 242,
+      "minecraft:deaths": 5,
+      "minecraft:jump": 1385,
+      "minecraft:time_since_death": 61419
     }
   },
   "DataVersion": 4790
