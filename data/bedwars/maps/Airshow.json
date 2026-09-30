@@ -1,0 +1,482 @@
+{
+ "name": "Airshow",
+ "manual": false,
+ "bounds": {
+  "min": [
+   -103,
+   34,
+   -103
+  ],
+  "max": [
+   103,
+   124,
+   103
+  ]
+ },
+ "void_y": 24,
+ "teams": [
+  {
+   "color": "red",
+   "bed": {
+    "head": [
+     77,
+     63,
+     40
+    ],
+    "foot": [
+     76,
+     63,
+     40
+    ]
+   },
+   "spawn": [
+    89,
+    80,
+    40
+   ],
+   "generator": [
+    89,
+    80,
+    40
+   ]
+  },
+  {
+   "color": "blue",
+   "bed": {
+    "head": [
+     40,
+     63,
+     77
+    ],
+    "foot": [
+     40,
+     63,
+     76
+    ]
+   },
+   "spawn": [
+    40,
+    80,
+    89
+   ],
+   "generator": [
+    40,
+    80,
+    89
+   ]
+  },
+  {
+   "color": "lime",
+   "bed": {
+    "head": [
+     -40,
+     67,
+     77
+    ],
+    "foot": [
+     -40,
+     67,
+     76
+    ]
+   },
+   "spawn": [
+    -40,
+    84,
+    89
+   ],
+   "generator": [
+    -40,
+    84,
+    89
+   ]
+  },
+  {
+   "color": "yellow",
+   "bed": {
+    "head": [
+     -77,
+     67,
+     40
+    ],
+    "foot": [
+     -76,
+     67,
+     40
+    ]
+   },
+   "spawn": [
+    -89,
+    84,
+    40
+   ],
+   "generator": [
+    -89,
+    84,
+    40
+   ]
+  },
+  {
+   "color": "cyan",
+   "bed": {
+    "head": [
+     -77,
+     63,
+     -40
+    ],
+    "foot": [
+     -76,
+     63,
+     -40
+    ]
+   },
+   "spawn": [
+    -89,
+    80,
+    -40
+   ],
+   "generator": [
+    -89,
+    80,
+    -40
+   ]
+  },
+  {
+   "color": "white",
+   "bed": {
+    "head": [
+     -40,
+     63,
+     -77
+    ],
+    "foot": [
+     -40,
+     63,
+     -76
+    ]
+   },
+   "spawn": [
+    -40,
+    80,
+    -89
+   ],
+   "generator": [
+    -40,
+    80,
+    -89
+   ]
+  },
+  {
+   "color": "pink",
+   "bed": {
+    "head": [
+     40,
+     67,
+     -77
+    ],
+    "foot": [
+     40,
+     67,
+     -76
+    ]
+   },
+   "spawn": [
+    40,
+    84,
+    -89
+   ],
+   "generator": [
+    40,
+    84,
+    -89
+   ]
+  },
+  {
+   "color": "gray",
+   "bed": {
+    "head": [
+     77,
+     67,
+     -40
+    ],
+    "foot": [
+     76,
+     67,
+     -40
+    ]
+   },
+   "spawn": [
+    89,
+    84,
+    -40
+   ],
+   "generator": [
+    89,
+    84,
+    -40
+   ]
+  }
+ ],
+ "diamonds": [
+  [
+   -52,
+   66,
+   0
+  ],
+  [
+   0,
+   66,
+   52
+  ],
+  [
+   0,
+   66,
+   -52
+  ],
+  [
+   52,
+   66,
+   0
+  ]
+ ],
+ "emeralds": [
+  [
+   0,
+   118,
+   0
+  ]
+ ],
+ "islands": [
+  {
+   "center": [
+    0.0,
+    0.0
+   ],
+   "cells": 1649,
+   "kind": "center"
+  },
+  {
+   "center": [
+    0.0,
+    -31.0
+   ],
+   "cells": 177,
+   "kind": "other"
+  },
+  {
+   "center": [
+    31.0,
+    0.0
+   ],
+   "cells": 177,
+   "kind": "other"
+  },
+  {
+   "center": [
+    -31.0,
+    0.0
+   ],
+   "cells": 177,
+   "kind": "other"
+  },
+  {
+   "center": [
+    0.0,
+    31.0
+   ],
+   "cells": 177,
+   "kind": "other"
+  },
+  {
+   "center": [
+    -37.0,
+    -20.0
+   ],
+   "cells": 97,
+   "kind": "other"
+  },
+  {
+   "center": [
+    -20.0,
+    37.0
+   ],
+   "cells": 97,
+   "kind": "other"
+  },
+  {
+   "center": [
+    -20.0,
+    -37.0
+   ],
+   "cells": 97,
+   "kind": "other"
+  },
+  {
+   "center": [
+    -37.0,
+    20.0
+   ],
+   "cells": 97,
+   "kind": "other"
+  },
+  {
+   "center": [
+    20.0,
+    -37.0
+   ],
+   "cells": 97,
+   "kind": "other"
+  },
+  {
+   "center": [
+    37.0,
+    20.0
+   ],
+   "cells": 97,
+   "kind": "other"
+  },
+  {
+   "center": [
+    20.0,
+    37.0
+   ],
+   "cells": 97,
+   "kind": "other"
+  },
+  {
+   "center": [
+    37.0,
+    -20.0
+   ],
+   "cells": 97,
+   "kind": "other"
+  },
+  {
+   "center": [
+    -52.0,
+    0.0
+   ],
+   "cells": 373,
+   "kind": "diamond"
+  },
+  {
+   "center": [
+    0.0,
+    52.0
+   ],
+   "cells": 373,
+   "kind": "diamond"
+  },
+  {
+   "center": [
+    0.0,
+    -52.0
+   ],
+   "cells": 373,
+   "kind": "diamond"
+  },
+  {
+   "center": [
+    52.0,
+    0.0
+   ],
+   "cells": 373,
+   "kind": "diamond"
+  },
+  {
+   "center": [
+    -40.0,
+    40.0
+   ],
+   "cells": 357,
+   "kind": "other"
+  },
+  {
+   "center": [
+    40.0,
+    40.0
+   ],
+   "cells": 357,
+   "kind": "other"
+  },
+  {
+   "center": [
+    -40.0,
+    -40.0
+   ],
+   "cells": 357,
+   "kind": "other"
+  },
+  {
+   "center": [
+    40.0,
+    -40.0
+   ],
+   "cells": 357,
+   "kind": "other"
+  },
+  {
+   "center": [
+    40.0,
+    -89.3
+   ],
+   "cells": 495,
+   "kind": "team"
+  },
+  {
+   "center": [
+    89.3,
+    40.0
+   ],
+   "cells": 495,
+   "kind": "team"
+  },
+  {
+   "center": [
+    -40.0,
+    89.3
+   ],
+   "cells": 495,
+   "kind": "team"
+  },
+  {
+   "center": [
+    -89.3,
+    -40.0
+   ],
+   "cells": 495,
+   "kind": "team"
+  },
+  {
+   "center": [
+    40.0,
+    89.3
+   ],
+   "cells": 495,
+   "kind": "team"
+  },
+  {
+   "center": [
+    -89.3,
+    40.0
+   ],
+   "cells": 495,
+   "kind": "team"
+  },
+  {
+   "center": [
+    89.3,
+    -40.0
+   ],
+   "cells": 495,
+   "kind": "team"
+  },
+  {
+   "center": [
+    -40.0,
+    -89.3
+   ],
+   "cells": 495,
+   "kind": "team"
+  }
+ ]
+}

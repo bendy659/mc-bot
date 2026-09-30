@@ -1,0 +1,442 @@
+{
+ "name": "RoofTop",
+ "manual": false,
+ "bounds": {
+  "min": [
+   -100,
+   20,
+   -100
+  ],
+  "max": [
+   100,
+   87,
+   100
+  ]
+ },
+ "void_y": 10,
+ "teams": [
+  {
+   "color": "red",
+   "bed": {
+    "head": [
+     80,
+     66,
+     34
+    ],
+    "foot": [
+     79,
+     66,
+     34
+    ]
+   },
+   "spawn": [
+    88,
+    76,
+    34
+   ],
+   "generator": [
+    88,
+    76,
+    34
+   ]
+  },
+  {
+   "color": "blue",
+   "bed": {
+    "head": [
+     34,
+     66,
+     80
+    ],
+    "foot": [
+     34,
+     66,
+     79
+    ]
+   },
+   "spawn": [
+    34,
+    76,
+    88
+   ],
+   "generator": [
+    34,
+    76,
+    88
+   ]
+  },
+  {
+   "color": "lime",
+   "bed": {
+    "head": [
+     -34,
+     66,
+     80
+    ],
+    "foot": [
+     -34,
+     66,
+     79
+    ]
+   },
+   "spawn": [
+    -34,
+    76,
+    88
+   ],
+   "generator": [
+    -34,
+    76,
+    88
+   ]
+  },
+  {
+   "color": "yellow",
+   "bed": {
+    "head": [
+     -80,
+     66,
+     34
+    ],
+    "foot": [
+     -79,
+     66,
+     34
+    ]
+   },
+   "spawn": [
+    -88,
+    76,
+    34
+   ],
+   "generator": [
+    -88,
+    76,
+    34
+   ]
+  },
+  {
+   "color": "cyan",
+   "bed": {
+    "head": [
+     -80,
+     66,
+     -34
+    ],
+    "foot": [
+     -79,
+     66,
+     -34
+    ]
+   },
+   "spawn": [
+    -88,
+    76,
+    -34
+   ],
+   "generator": [
+    -88,
+    76,
+    -34
+   ]
+  },
+  {
+   "color": "white",
+   "bed": {
+    "head": [
+     -34,
+     66,
+     -80
+    ],
+    "foot": [
+     -34,
+     66,
+     -79
+    ]
+   },
+   "spawn": [
+    -34,
+    76,
+    -88
+   ],
+   "generator": [
+    -34,
+    76,
+    -88
+   ]
+  },
+  {
+   "color": "pink",
+   "bed": {
+    "head": [
+     34,
+     66,
+     -80
+    ],
+    "foot": [
+     34,
+     66,
+     -79
+    ]
+   },
+   "spawn": [
+    34,
+    76,
+    -88
+   ],
+   "generator": [
+    34,
+    76,
+    -88
+   ]
+  },
+  {
+   "color": "gray",
+   "bed": {
+    "head": [
+     80,
+     66,
+     -34
+    ],
+    "foot": [
+     79,
+     66,
+     -34
+    ]
+   },
+   "spawn": [
+    88,
+    76,
+    -34
+   ],
+   "generator": [
+    88,
+    76,
+    -34
+   ]
+  }
+ ],
+ "diamonds": [
+  [
+   -8,
+   68,
+   45
+  ],
+  [
+   8,
+   68,
+   -45
+  ],
+  [
+   -50,
+   69,
+   -6
+  ],
+  [
+   50,
+   69,
+   6
+  ]
+ ],
+ "emeralds": [
+  [
+   -2,
+   81,
+   -3
+  ]
+ ],
+ "islands": [
+  {
+   "center": [
+    -11.0,
+    -11.0
+   ],
+   "cells": 409,
+   "kind": "center"
+  },
+  {
+   "center": [
+    11.0,
+    11.0
+   ],
+   "cells": 409,
+   "kind": "other"
+  },
+  {
+   "center": [
+    12.0,
+    -15.5
+   ],
+   "cells": 294,
+   "kind": "other"
+  },
+  {
+   "center": [
+    -12.0,
+    15.5
+   ],
+   "cells": 294,
+   "kind": "other"
+  },
+  {
+   "center": [
+    36.6,
+    -11.8
+   ],
+   "cells": 497,
+   "kind": "other"
+  },
+  {
+   "center": [
+    -36.6,
+    11.8
+   ],
+   "cells": 497,
+   "kind": "other"
+  },
+  {
+   "center": [
+    10.6,
+    39.5
+   ],
+   "cells": 278,
+   "kind": "other"
+  },
+  {
+   "center": [
+    -10.6,
+    -39.5
+   ],
+   "cells": 278,
+   "kind": "other"
+  },
+  {
+   "center": [
+    -7.8,
+    45.3
+   ],
+   "cells": 763,
+   "kind": "diamond"
+  },
+  {
+   "center": [
+    7.8,
+    -45.3
+   ],
+   "cells": 763,
+   "kind": "diamond"
+  },
+  {
+   "center": [
+    -50.3,
+    -5.6
+   ],
+   "cells": 546,
+   "kind": "diamond"
+  },
+  {
+   "center": [
+    50.3,
+    5.6
+   ],
+   "cells": 546,
+   "kind": "diamond"
+  },
+  {
+   "center": [
+    -39.0,
+    39.0
+   ],
+   "cells": 441,
+   "kind": "other"
+  },
+  {
+   "center": [
+    39.0,
+    39.0
+   ],
+   "cells": 441,
+   "kind": "other"
+  },
+  {
+   "center": [
+    -39.0,
+    -39.0
+   ],
+   "cells": 441,
+   "kind": "other"
+  },
+  {
+   "center": [
+    39.0,
+    -39.0
+   ],
+   "cells": 441,
+   "kind": "other"
+  },
+  {
+   "center": [
+    34.0,
+    -87.6
+   ],
+   "cells": 605,
+   "kind": "team"
+  },
+  {
+   "center": [
+    -87.6,
+    -34.0
+   ],
+   "cells": 605,
+   "kind": "team"
+  },
+  {
+   "center": [
+    87.6,
+    34.0
+   ],
+   "cells": 605,
+   "kind": "team"
+  },
+  {
+   "center": [
+    -34.0,
+    87.6
+   ],
+   "cells": 605,
+   "kind": "team"
+  },
+  {
+   "center": [
+    -87.6,
+    34.0
+   ],
+   "cells": 605,
+   "kind": "team"
+  },
+  {
+   "center": [
+    87.6,
+    -34.0
+   ],
+   "cells": 605,
+   "kind": "team"
+  },
+  {
+   "center": [
+    -34.0,
+    -87.6
+   ],
+   "cells": 605,
+   "kind": "team"
+  },
+  {
+   "center": [
+    34.0,
+    87.6
+   ],
+   "cells": 605,
+   "kind": "team"
+  }
+ ]
+}
