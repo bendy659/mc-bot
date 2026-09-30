@@ -1296,7 +1296,7 @@ def main():
         return 1
     loop = AILoop(args.task)
     # Учитель и вживую (py/sim/teacher.py): первых train.live_teachers ботов в
-    # салках и охоте ведут простые правила, их ходы уходят в память как
+    # салках, охоте, на мосту и в бедварсе ведут простые правила, их ходы уходят в память как
     # демонстрации (DQfD) — как при обучении в симуляции. Без них живое
     # обучение за минуты размывало выученное с учителем (2026-09-27: мозги из
     # симуляции после 15 минут игры — убегающие стоят и крутятся, водящие
@@ -1307,7 +1307,7 @@ def main():
         loop.teacher = lambda session, state: (
             teacher_actions(session, state, loop.config, loop)
             if session.id <= teachers and not session.greedy else None)
-        print(f"[ai] Учитель ведёт ботов 1–{teachers} в салках и охоте (train.live_teachers).")
+        print(f"[ai] Учитель ведёт ботов 1–{teachers} в салках, охоте, на мосту и в бедварсе (train.live_teachers).")
 
     def on_sigint(sig, frame):
         print("\n[ai] Останавливаюсь (Ctrl+C)...")
