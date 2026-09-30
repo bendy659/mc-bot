@@ -447,8 +447,14 @@ final class Actions {
     private boolean place(BlockPos against, Direction face) {
         Vec3 point = Vec3.atCenterOf(against).add(face.getStepX() * 0.5, face.getStepY() * 0.5, face.getStepZ() * 0.5);
         ItemStack stack = player.getMainHandItem();
+        // Как игрок с зажатым шифтом: блок ставится на грань, а не "используется"
+        // тот, по которому кликнули. Без этого бот, ставя шерсть на кровать,
+        // в неё ложился спать (автор, 2026-09-30), на верстак — открывал его.
+        boolean wasShift = player.isShiftKeyDown();
+        player.setShiftKeyDown(true);
         var result = player.gameMode.useItemOn(player, player.level(), stack, InteractionHand.MAIN_HAND,
             new BlockHitResult(point, face, against, false));
+        player.setShiftKeyDown(wasShift);
         player.swing(InteractionHand.MAIN_HAND);
         return result.consumesAction();
     }

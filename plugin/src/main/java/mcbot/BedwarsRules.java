@@ -9,6 +9,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerBedEnterEvent;
 
 /**
  * Правила бедварса в мире задачки bedwars (судья — py/bedwars_game.py): ломать
@@ -40,6 +41,12 @@ final class BedwarsRules implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
         if (inBedwars(event.getBlock())) placed.add(key(event.getBlock()));
+    }
+
+    /** Спать в бедварсе нельзя (как на Hypixel): кровать — цель, а не постель. */
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
+    public void onBedEnter(PlayerBedEnterEvent event) {
+        if (inBedwars(event.getBed())) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
