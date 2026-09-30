@@ -7,6 +7,7 @@ data/bedwars/maps/<карта>.json.
     python py/bedwars_maps.py Airshow Hollow
     python py/bedwars_maps.py --convert    # сетки для симуляции (нужен запущенный сервер, см. convert)
     python py/bedwars_maps.py --convert --server <папка сервера> Airshow
+    python py/bedwars_maps.py --shapes     # формы блоков из Node -> data/bedwars/block_shapes.json
 
 Что в описании: границы карты, острова (сверху — связные области блоков),
 восемь команд (кровать, цвет, где появляться, где генератор), точки
@@ -393,8 +394,33 @@ def convert(names: list[str], server_dir: Path) -> int:
     return 0
 
 
+# Блоки, которые появляются в игре кроме блоков карт: их ставят игроки и
+# боты (шерсть цвета команды — как на Hypixel), в симуляции — тоже.
+EXTRA_STATES = [f"minecraft:{color}_wool" for color in TEAM_COLORS] + ["minecraft:dirt"]
+SHAPES_FILE = OUT_DIR.parent / "block_shapes.json"
+
+
+def export_shapes() -> int:
+    """Формы и свойства всех состояний блоков карт (и EXTRA_STATES) — из Node,
+    как их видит mineflayer (js/export_block_shapes.js) -> data/bedwars/block_shapes.json."""
+    import subprocess
+    import tempfile
+
+    states = set(EXTRA_STATES)
+    for grid in sorted(OUT_DIR.glob("*.npz")):
+        states.update(str(state) for state in np.load(grid)["palette"])
+    states.discard("minecraft:air")
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+        json.dump(sorted(states), f)
+    subprocess.run(["node", str(ROOT / "js" / "export_block_shapes.js"), f.name, str(SHAPES_FILE)], check=True)
+    Path(f.name).unlink()
+    return 0
+
+
 def main(names: list[str]) -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    if names[:1] == ["--shapes"]:
+        return export_shapes()
     if names[:1] == ["--convert"]:
         server_dir = Path(names[2]) if names[1:2] == ["--server"] else ROOT / "server"
         return convert(names[3:] if names[1:2] == ["--server"] else names[1:], server_dir)

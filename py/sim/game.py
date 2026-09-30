@@ -22,7 +22,7 @@ from .physics import HALF_WIDTH, HEIGHT, Body, physics_tick, step_ahead
 from .route import RoutePlanner
 from .teacher import flee_actions
 from .vision import EYE_HEIGHT, Vision, raycast, ground_probe
-from .world import AIR, BLOCK_NAMES, DROPS, HAND_HARVEST, HARDNESS, ArenaWorld
+from .world import AIR, BLOCK_NAMES, COLLIDES, DROPS, FULL_CUBE, HAND_HARVEST, HARDNESS, PASS_THROUGH, SHAPES, ArenaWorld
 
 TICK_SECONDS = 0.15
 PHYSICS_TICKS_PER_DECISION = 3            # 150 мс решения = 3 тика физики по 50 мс
@@ -934,6 +934,37 @@ def free_for_block(world: ArenaWorld, cell: tuple, bodies: list) -> bool:
     return True
 
 
+def _shape_face(block: int, cell: list, eye: tuple, d: tuple, step: list) -> tuple | None:
+    """Грань и дальность (t) попадания в коробки блока — как
+    RaycastIterator.intersect prismarine-world (та же грань при равенстве)."""
+    big = 1.7976931348623157e308
+    inv = [1.0 / v if v != 0 else big for v in d]
+    p = (eye[0] - cell[0], eye[1] - cell[1], eye[2] - cell[2])
+    best, best_face = big, FACE_UNKNOWN
+    for shape in SHAPES[block]:
+        tmin = (shape[0 if inv[0] > 0 else 3] - p[0]) * inv[0]
+        tmax = (shape[3 if inv[0] > 0 else 0] - p[0]) * inv[0]
+        tymin = (shape[1 if inv[1] > 0 else 4] - p[1]) * inv[1]
+        tymax = (shape[4 if inv[1] > 0 else 1] - p[1]) * inv[1]
+        face = FACE_WEST if step[0] > 0 else FACE_EAST
+        if tmin > tymax or tymin > tmax:
+            continue
+        if tymin > tmin:
+            tmin = tymin
+            face = FACE_BOTTOM if step[1] > 0 else FACE_TOP
+        tmax = min(tmax, tymax)
+        tzmin = (shape[2 if inv[2] > 0 else 5] - p[2]) * inv[2]
+        tzmax = (shape[5 if inv[2] > 0 else 2] - p[2]) * inv[2]
+        if tmin > tzmax or tzmin > tmax:
+            continue
+        if tzmin > tmin:
+            tmin = tzmin
+            face = FACE_NORTH if step[2] > 0 else FACE_SOUTH
+        if tmin < best:
+            best, best_face = tmin, face
+    return None if best == big else (best_face, best)
+
+
 def center_hit(world: ArenaWorld, eye: tuple, yaw: float, pitch: float, max_distance: float = VIEW_DISTANCE):
     """Луч прицела (js/vision.js: centerRaycast) до первого блока: (x, y, z,
     грань, дальность, id блока) или None. В симуляции все блоки — полные кубы:
@@ -949,7 +980,18 @@ def center_hit(world: ArenaWorld, eye: tuple, yaw: float, pitch: float, max_dist
     axis, t_entry = None, 0.0
     while True:
         block = world.block(*cell)
-        if block != AIR:
+        if block != AIR and not PASS_THROUGH[block] and not FULL_CUBE[block]:
+            # Не целый куб (карты бедварса): жидкость, табличка — попадание в
+            # центр клетки, грань неизвестна; ступень, плита — по коробкам формы,
+            # промах — луч идёт дальше (RaycastIterator.intersect).
+            if not COLLIDES[block]:
+                center = (cell[0] + 0.5 - eye[0], cell[1] + 0.5 - eye[1], cell[2] + 0.5 - eye[2])
+                return cell[0], cell[1], cell[2], FACE_UNKNOWN, math.sqrt(sum(v * v for v in center)), block
+            hit = _shape_face(block, cell, eye, d, step)
+            if hit is not None:
+                face, t = hit
+                return cell[0], cell[1], cell[2], face, math.sqrt(sum((v * t) ** 2 for v in d)), block
+        elif block != AIR and not PASS_THROUGH[block]:
             if axis is None:
                 return cell[0], cell[1], cell[2], FACE_UNKNOWN, 0.0, block
             if axis == 0:

@@ -8,8 +8,13 @@ max_drop), точка маршрута на lookahead клеток вперед�
 from __future__ import annotations
 
 import math
+import re
 
-from .world import ArenaWorld
+from .world import AIR, BLOCK_NAMES, BOX_BLOCK, ArenaWorld
+
+# Как в js/route.js: по таким блокам не ходим (опасно или жидкость).
+DANGEROUS = re.compile(r"lava|fire|magma|cactus|campfire|sweet_berry|cobweb|powder_snow|wither_rose|pointed_dripstone")
+LIQUID = re.compile(r"water|lava|bubble_column|seagrass|kelp")
 
 SQRT2 = math.sqrt(2)
 
@@ -78,7 +83,13 @@ class RoutePlanner:
         ix, iy, iz = x - w.origin[0], y - w.origin[1], z - w.origin[2]
         if not (0 <= ix < w.size[0] and 0 <= iy < w.size[1] and 0 <= iz < w.size[2]):
             return "blocked"
-        return "solid" if w.blocks[ix, iy, iz] else "passable"
+        block = int(w.blocks[ix, iy, iz])
+        if block == AIR:
+            return "passable"
+        name = BLOCK_NAMES[block]
+        if DANGEROUS.search(name) or LIQUID.search(name):
+            return "blocked"
+        return "solid" if BOX_BLOCK[block] else "passable"
 
     def standable(self, x: int, y: int, z: int) -> bool:
         return self.kind(x, y - 1, z) == "solid" and self.kind(x, y, z) == "passable" and self.kind(x, y + 1, z) == "passable"

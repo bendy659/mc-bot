@@ -3,9 +3,12 @@
 прицела (center_block) — туда, куда смотрит голова, с наклоном.
 
 Лучи шагают по клеткам ровно как RaycastIterator из prismarine-world
-(Amanatides-Woo, тот же выбор оси при равенстве), дальность попадания —
-вход луча в блок (у нас все блоки — целые кубы). Все лучи всех ботов
-считаются разом, массивами numpy.
+(Amanatides-Woo, тот же выбор оси при равенстве), как fastRaycast в
+js/vision.js: проходные блоки (цветы, факелы) луч пропускает; полный куб —
+попадание на входе в клетку; блок другой формы (ступень, плита, кровать) —
+по его коробкам, промахнулся — луч идёт дальше; блок без коробок (жидкость,
+табличка) — попадание в центр клетки. Все лучи всех ботов считаются разом,
+массивами numpy (формы — поштучно: их мало).
 """
 
 from __future__ import annotations
@@ -14,7 +17,7 @@ import math
 
 import numpy as np
 
-from .world import AIR, BLOCK_NAMES, CLASS_BY_ID, COLOR_BYTES, SKY_BYTES, ArenaWorld
+from .world import AIR, BLOCK_NAMES, CLASS_BY_ID, COLLIDES, COLOR_BYTES, FULL_CUBE, PASS_THROUGH, SHAPES, SKY_BYTES, ArenaWorld
 
 EYE_HEIGHT = 1.62  # entity.eyeHeight у игроков mineflayer (js/vision.js: eyePosition)
 BIG = 1.7976931348623157e308  # Number.MAX_VALUE — так RaycastIterator помечает ось без движения
@@ -35,13 +38,20 @@ def raycast(world: ArenaWorld, origins: np.ndarray, directions: np.ndarray, max_
         t_max = np.where(moving, np.abs((boundary - origins) / np.where(moving, d, 1.0)), BIG)
 
     distance = np.full(count, np.inf)
-    hit = np.zeros(count, dtype=np.uint8)
+    hit = np.zeros(count, dtype=np.uint16)
     t_entry = np.zeros(count)
     active = np.arange(count)
     while active.size:
         ids = world.ids(cell[active])
-        solid = ids != AIR
-        if solid.any():
+        candidate = (ids != AIR) & ~PASS_THROUGH[ids]
+        if candidate.any():
+            solid = candidate & FULL_CUBE[ids]
+            for row in np.nonzero(candidate & ~FULL_CUBE[ids])[0]:
+                ray = active[row]
+                t = _shape_hit(ids[row], cell[ray], origins[ray], d[ray])
+                if t is not None:
+                    solid[row] = True
+                    t_entry[ray] = t
             done = active[solid]
             distance[done] = t_entry[done]
             hit[done] = ids[solid]
@@ -61,6 +71,33 @@ def raycast(world: ArenaWorld, origins: np.ndarray, directions: np.ndarray, max_
         cell[active, axis] += step[active, axis]
         t_max[active, axis] += t_delta[active, axis]
     return distance, hit
+
+
+def _shape_hit(block_id: int, cell: np.ndarray, origin: np.ndarray, d: np.ndarray) -> float | None:
+    """Дальность до блока не целой формы — как fastRaycast: без коробок
+    (жидкость, табличка) — до центра клетки; иначе — ближайший вход луча в
+    коробку (RaycastIterator.intersect); не попал — None, луч идёт дальше."""
+    if not COLLIDES[block_id]:
+        return float(np.linalg.norm(cell + 0.5 - origin))
+    inv = [BIG if v == 0 else 1.0 / v for v in d]
+    p = origin - cell
+    best = BIG
+    for shape in SHAPES[block_id]:
+        tmin = (shape[0 if inv[0] > 0 else 3] - p[0]) * inv[0]
+        tmax = (shape[3 if inv[0] > 0 else 0] - p[0]) * inv[0]
+        tymin = (shape[1 if inv[1] > 0 else 4] - p[1]) * inv[1]
+        tymax = (shape[4 if inv[1] > 0 else 1] - p[1]) * inv[1]
+        if tmin > tymax or tymin > tmax:
+            continue
+        tmin, tmax = max(tmin, tymin), min(tmax, tymax)
+        tzmin = (shape[2 if inv[2] > 0 else 5] - p[2]) * inv[2]
+        tzmax = (shape[5 if inv[2] > 0 else 2] - p[2]) * inv[2]
+        if tmin > tzmax or tzmin > tmax:
+            continue
+        best = min(best, max(tmin, tzmin))
+    if best == BIG:
+        return None
+    return float(np.linalg.norm(d * best))  # как distanceTo точки попадания
 
 
 class Vision:

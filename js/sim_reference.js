@@ -9,9 +9,7 @@
 const { EventEmitter } = require('events');
 
 const { Vec3 } = require('vec3');
-const registry = require('prismarine-registry')('1.20.1');
-const Chunk = require('prismarine-chunk')(registry);
-const World = require('prismarine-world')(registry);
+const { buildWorld } = require('./sim_world');
 const { buildVisionGrid, centerBlockInfo, groundProbe } = require('./vision');
 const { RoutePlanner } = require('./route');
 const { ActionExecutor } = require('./actions');
@@ -24,21 +22,10 @@ function toByte(value) {
 async function main() {
     let input = '';
     for await (const chunk of process.stdin) input += chunk;
-    const { fills, poses, routes } = JSON.parse(input);
+    const request = JSON.parse(input);
+    const { poses, routes } = request;
     const config = loadConfig();
-
-    const world = new World(() => new Chunk());
-    for (const [x1, y1, z1, x2, y2, z2, name] of fills) {
-        if (name === 'air') continue; // новый мир и так пуст
-        const stateId = registry.blocksByName[name].defaultState;
-        for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) {
-            for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) {
-                for (let z = Math.min(z1, z2); z <= Math.max(z1, z2); z++) {
-                    await world.setBlockStateId(new Vec3(x, y, z), stateId);
-                }
-            }
-        }
-    }
+    const { registry, world } = await buildWorld(request);
     const sync = world.sync;
 
     const vision = [];
