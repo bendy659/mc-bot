@@ -268,8 +268,9 @@ def describe(name: str, blocks: dict) -> dict:
     """Описание карты.
 
     Команды — острова с одной кроватью (не в центре: на Lighthouse в центре
-    кровати-украшения). Появляются в середине острова, генератор железа и
-    золота — там же (на Hypixel кузница рядом с точкой появления).
+    кровати-украшения). Появляются на полу острова на уровне кровати, ближе к
+    середине острова; генератор железа и золота — там же (на Hypixel кузница
+    рядом с точкой появления).
     Алмазы — DIAMOND_COUNT самых больших островов, кроме командных и
     центрального; если их меньше (Waterfall: алмазные острова срослись с
     центром мостами) — точки на полпути к командам, между соседними парами.
@@ -286,7 +287,11 @@ def describe(name: str, blocks: dict) -> dict:
         head = on_island[0]
         foot = next(((head[0] + dx, head[1], head[2] + dz) for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1))
                      if blocks.get((head[0] + dx, head[1], head[2] + dz), (0, 0))[0] == BED), head)
-        spawn = nearest_point(all_points[id(island)], island["center"])
+        # Появляться — на полу острова на уровне кровати (самый высокий столб в
+        # середине острова бывает крышей постройки — Easter Basket), поближе к
+        # середине острова; такого пола нет — где угодно на острове.
+        floor = [p for p in all_points[id(island)] if abs(p[1] - head[1]) <= 1]
+        spawn = nearest_point(floor or all_points[id(island)], island["center"])
         teams.append({"island": island, "bed": {"head": list(head), "foot": list(foot)},
                       "spawn": list(spawn) if spawn else None,
                       "angle": math.atan2(island["center"][1], island["center"][0]) % (2 * math.pi)})

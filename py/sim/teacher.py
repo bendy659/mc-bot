@@ -391,6 +391,58 @@ def bridge_rescue(state: dict) -> dict | None:
     return actions if actions["legs"] == "walk_forward" else None
 
 
+BED_REACH = 4.0     # бедварс: кровать ближе стольки (от глаз) — наводиться и копать
+EDGE_AHEAD = 1.0    # бедварс: пола впереди меньше стольки — край острова, начинать мост
+EDGE_WALK = 2.9     # ...а меньше стольки (чувство пола видит до 3) — к краю шагом, не бегом
+
+
+def bedwars_actions(state: dict, module) -> dict:
+    """Бедварс (py/bedwars_game.py): цель от судьи — враг рядом или чужая
+    кровать. Враг — к нему и бить, как только удар достаёт и заряжен. Кровать
+    — если до неё можно дойти (маршрут полный), идти по маршруту; рядом —
+    навести взгляд и копать (кровать ломается рукой за полсекунды); дойти
+    нельзя (между островами пустота) — по маршруту к ближайшей к ней точке,
+    оттуда мост, как учитель моста (ось по миру, при нужде сначала столб).
+    Враг в зоне удара по пути — бить."""
+    me = state["self"]
+    goal = state.get("target")
+    if goal is None:
+        return {"legs": "idle", "head": _level(me, "head_idle"), "hands": "hands_idle"}
+    strike = bool(state.get("strike")) and _charged(state)
+    route = state.get("route") or {}
+    if (goal.get("h") or 0) > 0:  # враг (у кровати-точки роста нет)
+        legs, head = _steer(aim_errors(me, module.observe(state)["target"])[0])
+        return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
+    eye = (me["x"], me["y"] + 1.62, me["z"])
+    if math.dist(eye, (goal["x"], goal["y"], goal["z"])) <= BED_REACH:
+        yaw_error, pitch_error = aim_errors(me, goal)
+        legs = ("turn_left" if yaw_error > 0 else "turn_right") if abs(yaw_error) > COARSE else "idle"
+        center = state.get("center_block")
+        aimed = center is not None and center["name"].endswith("_bed") and center["distance"] <= 4.5
+        return {"legs": legs, "head": _aim_head(yaw_error, pitch_error),
+                "hands": "attack_center" if aimed or strike else "hands_idle"}
+    if route.get("complete"):
+        module.teacher_bridging = False
+    elif not getattr(module, "teacher_bridging", False) and route and (state.get("ground") or [3.0])[0] > EDGE_AHEAD:
+        # Дойти нельзя: маршрут ведёт к ближайшей к цели достижимой точке (край
+        # своего острова или конец моста) — сперва туда, к краю шагом (бегом
+        # проскакивал в пустоту по инерции). Впереди пола меньше EDGE_AHEAD —
+        # край: дальше мост, до полного маршрута (развернувшись для моста,
+        # впереди снова остров — не идти же к краю заново).
+        legs, head = _steer(aim_errors(me, module.observe(state)["target"])[0])
+        if legs == "sprint_forward" and (state.get("ground") or [3.0])[0] < EDGE_WALK:
+            legs = "walk_forward"
+        return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
+    if route.get("complete"):
+        legs, head = _steer(aim_errors(me, module.observe(state)["target"])[0])
+        return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
+    module.teacher_bridging = True
+    actions = bridge_actions(state)
+    if strike:
+        actions["hands"] = "attack_center"
+    return actions
+
+
 def teacher_actions(session, state: dict, config: dict, loop=None) -> dict | None:
     """Действия учителя для бота этой сессии (или None — пусть решает сеть).
     loop — AILoop: охотнику нужно знать, где остальные охотники."""
@@ -398,6 +450,8 @@ def teacher_actions(session, state: dict, config: dict, loop=None) -> dict | Non
         return chase_actions(state, session.module)
     if session.task_name == "bridge":
         return bridge_actions(state)
+    if session.task_name == "bedwars":
+        return bedwars_actions(state, session.module)
     if session.task_name == "hunt":
         return hunt_actions(state, session.module, session.id, hunt_peers(loop, session) if loop else [])
     if session.task_name == "flee":

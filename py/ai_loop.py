@@ -60,6 +60,7 @@ from protocol import CHANNEL_NAMES, IDLE_ACTIONS
 from state_encoder import FrameStacker, encode_state, scalar_dim, unpack_vision, vision_channels
 from dqn import TaskBrain
 from demo_loader import action_indices, load_demos_into
+from bedwars_game import BEDWARS, LOST, WON, BedwarsGame, clock as bedwars_clock
 from bridge_course import BridgeCourse, fill_command
 from hunt_game import HUNT, KILLED, HuntGame
 from tag_game import CHASE, FLEE, TERMINAL_OUTCOMES, TagGame
@@ -284,6 +285,10 @@ class AILoop:
         self.tag_game.on_round_start = lambda: self._run_round_function(TAG)
         # Судья "Останови меня" (задачка hunt): кого ловить, началась ли охота.
         self.hunt = HuntGame(self.config)
+        # Судья бедварса (py/bedwars_game.py): игры на картах Hypixel в мире задачки.
+        self.bedwars = BedwarsGame(self.config)
+        self._bed_check_at = 0.0
+        self._bedwars_warned = False
         # Учитель (только в симуляции, py/train_tag_sim.py): функция (сессия,
         # состояние) -> действия или None. Если вернула действия — бот делает
         # их, а переход идёт в память как демонстрация.
@@ -556,6 +561,8 @@ class AILoop:
             self._hunt_turn(session, state)
         elif session.task_name == BRIDGE:
             self._bridge_turn(session, state)
+        elif session.task_name == BEDWARS:
+            self._bedwars_turn(session, state)
         brain = self._brain(session.task_name)
         module = session.module
         module.on_tick(state)
@@ -589,7 +596,8 @@ class AILoop:
 
         waiting = (session.tag and self.tag_game.is_frozen(session.id)) or \
             (session.hunting and self.hunt.waiting(session.id)) or \
-            (session.task_name == BRIDGE and not session.bridge_ready)
+            (session.task_name == BRIDGE and not session.bridge_ready) or \
+            (session.task_name == BEDWARS and self.bedwars.waiting(session.id))
         if waiting:
             # Водящий "считает до пяти", пауза между раундами салок или охота
             # hunt ещё не начата (ждём !start): бот стоит, решений не
@@ -667,6 +675,8 @@ class AILoop:
             taggable = self.hunt.taggable_ids()
         elif session.hunting:
             taggable = self.hunt.hunter_ids()  # бот-цель отбивается от охотников
+        elif session.task_name == BEDWARS:
+            taggable = self.bedwars.enemy_ids(session.id)  # бедварс: только соперников
         else:
             taggable = []
         self.action_socket.send_json({
@@ -745,6 +755,48 @@ class AILoop:
         # Вход сети closest (state_encoder) и учитель: ближайшему к цели —
         # лезть за ней на столб, остальным — копать под ней.
         state["hunt_closest"] = role == HUNT and self.hunt.closest(session.id)
+
+    def _bedwars_turn(self, session: BotSession, state: dict) -> None:
+        """Ход судьи бедварса (py/bedwars_game.py): новая игра, когда прошлая
+        кончилась (карта заново, команды по островам, наборы); где бот, умер
+        ли (возрождение или выбывание), не в пустоте ли; целы ли кровати;
+        победа. Боту — куда идти (цель от судьи), кого можно бить, события
+        для наград. Играть можно только в мире задачки на нашем сервере (или
+        в симуляции): обычный мир под бедварс не перестраиваем (автор)."""
+        game = self.bedwars
+        now = bedwars_clock()
+        if game.want_new_game(now):
+            players = sorted(sid for sid, other in self.sessions.items() if other.task_name == BEDWARS)
+            if len(players) >= 2 and self._bedwars_world_ok():
+                game.new_game(players, lambda sid: bot_name(sid, self.config), now)
+                print(f"[ai] {game.describe()}")
+        game.see_bot(session.id, state, now)
+        if game.started_at is not None and now >= self._bed_check_at:
+            self._bed_check_at = now + 0.5
+            for team_index, cells in game.beds_to_check(now):
+                if not self.server.is_bed(game.world, cells):
+                    game.bed_broken(team_index, now)
+        game.check_end(now)
+        for event in game.take_events(session.id):
+            if event in (WON, LOST):
+                session.module.game_events.append(event)
+                self._end_episode(session, state, event)
+                session.module.game_events.clear()  # переход уже закрыт (или его не было)
+            else:
+                session.module.game_events.append(event)
+        session.module.game_target = game.target_for(session.id)
+        session.module.enemy_ids = set(game.enemy_ids(session.id))
+        for command in game.take_commands():
+            self.server.send(command)
+
+    def _bedwars_world_ok(self) -> bool:
+        if self.server is not None and (getattr(self.server, "simulated", False) or self._task_world(BEDWARS)):
+            return True
+        if not self._bedwars_warned:
+            self._bedwars_warned = True
+            print("[ai] Бедварс: нужен наш сервер (RCON) с плагином и мир задачки (config.json bot.body = plugin, "
+                  "bot.task_worlds.bedwars) — обычный мир не трогаю.")
+        return False
 
     def _bridge_turn(self, session: BotSession, state: dict) -> None:
         """Судья моста (задачка bridge): у каждого бота своя дорожка трассы

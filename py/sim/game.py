@@ -12,6 +12,7 @@ from __future__ import annotations
 import math
 import random
 from collections import Counter
+from pathlib import Path
 
 import numpy as np
 
@@ -24,6 +25,8 @@ from .teacher import flee_actions
 from .vision import EYE_HEIGHT, Vision, raycast, ground_probe
 from .world import AIR, BLOCK_NAMES, COLLIDES, DROPS, FULL_CUBE, HAND_HARVEST, HARDNESS, PASS_THROUGH, SHAPES, ArenaWorld
 
+BEDWARS_MAPS = Path(__file__).resolve().parents[2] / "data" / "bedwars" / "maps"  # сетки карт (py/bedwars_maps.py)
+BEDWARS_VOID_DEPTH = 40                   # бедварс: ниже карты на столько — страховка (судья убивает раньше, на void_y)
 TICK_SECONDS = 0.15
 PHYSICS_TICKS_PER_DECISION = 3            # 150 мс решения = 3 тика физики по 50 мс
 HOLD_TICKS = 5                            # движение держится 250 мс (ACTION_DURATION_MS)
@@ -154,10 +157,16 @@ class Agent:
         self.place_support: tuple | None = None  # place_below: опора, ждём прыжка
         self.place_wait = 0
         self.hands_busy_ticks = 0            # короткое дело рук (place_front)
+        self.out = False                     # бедварс: выбыл (зритель) — вне игры до новой игры
 
     @property
     def dead(self) -> bool:
         return self.dead_until is not None
+
+    @property
+    def absent(self) -> bool:
+        """Нет в мире для других: мёртв или выбыл (зритель)."""
+        return self.dead_until is not None or self.out
 
     def eye(self) -> tuple:
         x, y, z = self.body.pos
@@ -172,7 +181,7 @@ class SimArena:
     def __init__(self, config: dict, bots: int, rng: random.Random, latency: bool = True,
                  target_name: str | None = None, target_sprint: bool = False, pillar_chance: float = 0.0,
                  regen_seconds: float = REGEN_SECONDS, box_chance: float = 0.0, sword_sharpness: int = 0,
-                 hide_distance: float = 5.0, random_kit: bool = False, course=None):
+                 hide_distance: float = 5.0, random_kit: bool = False, course=None, bedwars: bool = False):
         """target_name — добавить "человека" (для охоты hunt): его ведёт
         учитель убегающего, боты видят его в state.humans и бьют. Он ходит
         шагом (target_sprint — бегает): поддаётся, чтобы было кого догнать."""
@@ -209,7 +218,18 @@ class SimArena:
         # Трасса задачки (bridge_course.BridgeCourse) — свой мир вместо арены:
         # острова над пустотой, у каждого бота своя дорожка.
         self.course = course
-        self.world = ArenaWorld.for_course(course) if course is not None else ArenaWorld(self.arena_cfg)
+        # Бедварс: мир — карта Hypixel (py/bedwars_maps.py), её грузит судья
+        # командой "mcbot bedwars <карта>" (как плагин). Ломать можно только
+        # поставленные блоки (placed) и кровати; сломанные кровати — судье.
+        self.bedwars = bedwars
+        self.map_worlds: dict[str, ArenaWorld] = {}
+        self.placed: set[tuple] = set()
+        if bedwars:
+            self.world = self._map_world(sorted(p.stem for p in BEDWARS_MAPS.glob("*.npz"))[0])
+        elif course is not None:
+            self.world = ArenaWorld.for_course(course)
+        else:
+            self.world = ArenaWorld(self.arena_cfg)
         self.vision = Vision(config)
         self.rng = rng
         self.latency = latency  # ответ Python приходит не сразу: иногда тик физики — ещё по старому
@@ -226,7 +246,13 @@ class SimArena:
         cx, cz = self.arena_cfg["center"]
         self.spawn = (cx + 0.5, self.world.floor_y, cz + 0.5) if course is None else course.start(0)
         self.hits = 0
-        self.spread()
+        if bedwars:
+            # В бедварсе всех расставляет судья; до его команд (gamemode survival,
+            # телепорт на остров) боты — зрители: иначе падали бы с края карты.
+            for agent in self.agents.values():
+                agent.out = True
+        else:
+            self.spread()
 
     # --- состояния ----------------------------------------------------------
 
@@ -283,7 +309,7 @@ class SimArena:
                 "humans": self._humans(),
                 "attacked_id": agent.attacked_id,
                 "hurt_by": agent.hurt_by,
-                "strike": 1 if not agent.dead and self._strike_target(agent) is not None else 0,
+                "strike": 1 if not agent.absent and self._strike_target(agent) is not None else 0,
                 "can_place": 1 if self._can_place_front(agent) else 0,
                 "attack_charge": js_round(self._charge(agent)),
                 "damage_dealt": agent.damage_dealt,
@@ -408,7 +434,7 @@ class SimArena:
         видна (мертва) — запасная позиция от Python, рост 0."""
         if agent.target_entity is not None:
             other = self.by_entity.get(agent.target_entity)
-            if other is not None and not other.dead:
+            if other is not None and not other.absent:
                 x, y, z = other.body.pos
                 return {"x": js_round(x), "y": js_round(y), "z": js_round(z), "h": PLAYER_ENTITY_HEIGHT}
         if agent.target_fallback is not None:
@@ -424,7 +450,7 @@ class SimArena:
         fx, fz = -math.sin(agent.body.yaw), -math.cos(agent.body.yaw)
         seen = []
         for other in self.agents.values():
-            if other is agent or other.dead:
+            if other is agent or other.absent:
                 continue
             dx, dy, dz = other.body.pos[0] - ox, other.body.pos[1] - oy, other.body.pos[2] - oz
             dist = math.sqrt(dx * dx + dy * dy + dz * dz)
@@ -462,7 +488,7 @@ class SimArena:
         best, best_cos = None, ATTACK_CONE_COS
         for entity_id in agent.taggable:
             other = self.by_entity.get(entity_id)
-            if other is None or other is agent or other.dead:
+            if other is None or other is agent or other.absent:
                 continue
             cx, cy, cz = other.center()
             dx, dy, dz = cx - ex, cy - ey, cz - ez
@@ -502,7 +528,7 @@ class SimArena:
         outbox.targets.clear()
         for bot_id, message in outbox.actions.items():
             agent = self.agents.get(bot_id)
-            if agent is None or agent.dead:
+            if agent is None or agent.absent:
                 continue
             # Ответ Python приходит не мгновенно: в игре (плагин) состояние
             # уходит в начале тика, ответ выполняется в следующем — тик физики
@@ -600,6 +626,8 @@ class SimArena:
         hit = center_hit(self.world, agent.eye(), agent.body.yaw, agent.body.pitch)
         if hit is None or hit[4] > DIG_REACH or HARDNESS[BLOCK_NAMES[hit[5]]] < 0:
             return  # далеко, воздух до горизонта или бедрок/барьер
+        if not self._breakable((hit[0], hit[1], hit[2]), hit[5]):
+            return  # бедварс: карту не ломают
         agent.dig = (hit[0], hit[1], hit[2])
         agent.dig_progress = 0.0
         agent.dig_ticks = 0
@@ -636,13 +664,13 @@ class SimArena:
     def _can_place_front(self, agent: Agent) -> bool:
         """state.can_place: place_front сейчас поставил бы блок (js/actions.js:
         canPlaceFront) — есть чем, грань в прицеле, клетка за ней свободна."""
-        if agent.dead or self._held_block(agent) is None:
+        if agent.absent or self._held_block(agent) is None:
             return False
         dest = self._place_front_cell(agent)
         return dest is not None and self._free_for_block(*dest)
 
     def _free_for_block(self, x: int, y: int, z: int) -> bool:
-        return free_for_block(self.world, (x, y, z), [a.body.pos for a in self.agents.values() if not a.dead])
+        return free_for_block(self.world, (x, y, z), [a.body.pos for a in self.agents.values() if not a.absent])
 
     def _place(self, agent: Agent, x: int, y: int, z: int) -> bool:
         block = self._held_block(agent)
@@ -650,6 +678,7 @@ class SimArena:
             return False
         if not self.world.set_block(x, y, z, block):
             return False
+        self.placed.add((x, y, z))
         self.stats["поставила цель" if agent.scripted else "поставили боты"] += 1
         agent.inventory[block] -= 1
         if agent.inventory[block] <= 0:
@@ -686,7 +715,18 @@ class SimArena:
         agent.dig_ticks += 1
         if agent.dig_progress >= 1.0:
             self.world.set_block(*agent.dig, "air")
+            self.placed.discard(agent.dig)
             self.stats["выкопали боты" if not agent.scripted else "выкопала цель"] += 1
+            if name.endswith("_bed"):
+                # Кровать — две клетки: сломал одну, пропадает и вторая (как в игре).
+                # Предмета нет (в бедварсе сломанная кровать ничего не даёт).
+                x, y, z = agent.dig
+                for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    if BLOCK_NAMES[self.world.block(x + dx, y, z + dz)] == name:
+                        self.world.set_block(x + dx, y, z + dz, "air")
+                self.stats["сломали кроватей"] += 1
+                agent.dig = None
+                return
             if name in HAND_HARVEST:  # каменный кирпич рукой — ничего не выпадает
                 drop = DROPS.get(name, name)
                 agent.inventory[drop] = agent.inventory.get(drop, 0) + 1
@@ -694,10 +734,31 @@ class SimArena:
         elif agent.dig_ticks >= DIG_TIMEOUT_TICKS:
             agent.dig = None
 
+    def _breakable(self, cell: tuple, block: int) -> bool:
+        """Бедварс: ломать можно только поставленное игроками и кровати (как
+        плагин в мире бедварса); в остальных задачках — всё, что не бедрок."""
+        return not self.bedwars or cell in self.placed or BLOCK_NAMES[block].endswith("_bed")
+
+    def _map_world(self, name: str) -> ArenaWorld:
+        if name not in self.map_worlds:
+            self.map_worlds[name] = ArenaWorld.for_bedwars_map(name)
+        return self.map_worlds[name]
+
+    def load_map(self, name: str) -> None:
+        """/mcbot bedwars <карта>: карта заново (как плагин: мир перезагружается
+        из её регионов) — всё построенное и сломанное пропадает."""
+        self.world = self._map_world(name)
+        self.world.reset()
+        self.placed.clear()
+        x, z = 0, 0
+        self.spawn = (x + 0.5, self.world.top_y(x, z), z + 0.5)
+        self.reset_world()
+
     def reset_world(self) -> None:
         """Арена как построена (после охоты, в начале раунда салок): копка и
         столбы прошлого раза убраны, маршруты — заново."""
         self.world.reset()
+        self.placed.clear()
         for agent in self.agents.values():
             agent.dig = None
             agent.place_support = None
@@ -744,7 +805,7 @@ class SimArena:
             vel[1] = min(0.4, vel[1] / 2 + KNOCKBACK)
         victim.body.on_ground = False
         for listener in self.agents.values():  # звук удара и урона
-            if not listener.dead:
+            if not listener.absent:
                 listener.hearing.add_sound(listener.body.pos, victim.body.pos, 1.0)
         if victim.health <= 0:
             self._kill(victim, killer=attacker)
@@ -755,7 +816,7 @@ class SimArena:
         """150 мс: три тика физики; действия применяются на своём тике."""
         for physics_index in range(PHYSICS_TICKS_PER_DECISION):
             for agent in self.agents.values():
-                if agent.dead:
+                if agent.absent:
                     continue
                 if agent.pending is not None and agent.pending[0] == physics_index:
                     _, actions, tag_ids = agent.pending
@@ -769,6 +830,8 @@ class SimArena:
                 physics_tick(agent.body, self.world)
                 self._tick_hands(agent)
                 self._tick_weapon(agent)
+                if self.bedwars and agent.body.pos[1] < self.world.origin[1] - BEDWARS_VOID_DEPTH:
+                    self._kill(agent)
                 if self.course is not None and agent.body.pos[1] < self.course.start(0)[1] - 80:
                     # Страховка: падение засчитывает и возвращает судья (как в игре,
                     # ai_loop._bridge_turn) задолго до этой глубины.
@@ -779,7 +842,7 @@ class SimArena:
 
     def _regenerate(self) -> None:
         for agent in self.agents.values():
-            if agent.dead or agent.health >= 20 or self.time < agent.regen_at:
+            if agent.absent or agent.health >= 20 or self.time < agent.regen_at:
                 continue
             agent.health = min(20.0, agent.health + 1.0)
             agent.regen_at = self.time + self.regen_seconds
@@ -831,11 +894,25 @@ class SimArena:
             item = words[2].split(":")[-1].split("[")[0]
             count = int(words[3]) if len(words) > 3 else 1
             for agent in self._named(words[1]):
-                agent.inventory[item] = agent.inventory.get(item, 0) + count
+                if item.endswith("_sword"):
+                    agent.sword, agent.holding_block = True, False  # меч сразу в руке, как у плагина
+                else:
+                    agent.inventory[item] = agent.inventory.get(item, 0) + count
             return
         if words[0] == "clear" and len(words) >= 2:
             for agent in self._named(words[1]):
                 agent.inventory = {}
+                agent.sword = False
+            return
+        if words[0] == "mcbot" and len(words) >= 3 and words[1] == "bedwars":
+            self.load_map(" ".join(words[2:]))
+            return
+        if words[0] == "gamemode" and len(words) == 3:
+            # Бедварс: выбыл — зритель (вне игры), новая игра — снова в игре.
+            for agent in self._named(words[2]):
+                agent.out = words[1] == "spectator"
+                if agent.out:
+                    agent.body.controls, agent.pending, agent.dig = {}, None, None
             return
         if words[0] == "kill" and len(words) == 2:
             for agent in self.agents.values():

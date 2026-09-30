@@ -42,7 +42,7 @@ SIM_DIR = ROOT / "data" / "sim"
 # Мягкая остановка: появился этот файл — сохранить мозги и выйти (снимать
 # процесс силой — потерять обучение с последнего сохранения).
 STOP_FILE = SIM_DIR / "stop"
-TASKS = ("chase", "flee", "hunt", "walking", "bridge")  # walking — основа моста (train.warm_start_from)
+TASKS = ("chase", "flee", "hunt", "walking", "bridge", "bedwars")  # walking — основа моста (train.warm_start_from)
 TARGET_NAME = "Target"  # "человек" в охоте — ведёт учитель убегающего
 HIDE_NAMES = {"pillar": "столб", "box": "коробка", "run": "бег"}
 
@@ -55,10 +55,12 @@ CONFIG["zmq"] = {"node_to_py": 5975, "py_to_node": 5976}
 CONFIG["server"] = {key: value for key, value in CONFIG["server"].items() if key != "rcon"}
 
 import ai_loop  # noqa: E402
+import bedwars_game  # noqa: E402
 from bridge_course import BridgeCourse  # noqa: E402
 import hunt_game  # noqa: E402
 import tag_game  # noqa: E402
 from sim.game import SimArena  # noqa: E402
+from sim.world import BLOCK_NAMES  # noqa: E402
 from sim.teacher import bridge_rescue, teacher_actions  # noqa: E402
 
 
@@ -116,6 +118,10 @@ class SimServer:
 
     def run_function(self, name: str) -> int:
         return 0  # наборы команд задач (server/functions) — только настоящему серверу
+
+    def is_bed(self, world: str, cells: list) -> bool:
+        """Бедварс: цела ли кровать (как TrainingServer.is_bed по RCON)."""
+        return all(BLOCK_NAMES[self.arena.world.block(*cell)].endswith("_bed") for cell in cells)
 
     def close(self) -> None:
         pass
@@ -179,8 +185,9 @@ def main() -> int:
     # мозгов как демонстрации (DQfD), а остальные боты играют с ним и учатся.
     parser.add_argument("--teachers", type=int, default=0, help="сколько ботов ведёт учитель")
     parser.add_argument("--eval", action="store_true", help="проверка: мозги без случайных действий, без обучения")
-    parser.add_argument("--game", choices=("tag", "hunt", "bridge"), default="tag",
-                        help="салки, охота (Останови меня) или мост над пустотой (bridge: трасса bridge_course)")
+    parser.add_argument("--game", choices=("tag", "hunt", "bridge", "bedwars"), default="tag",
+                        help="салки, охота (Останови меня), мост над пустотой (bridge: трасса bridge_course) "
+                             "или бедварс (две команды на картах Hypixel, py/bedwars_game.py)")
     # Охота: цель — случайный бот роя (как !start auto, сам по кругу) или
     # "человек", которого ведёт учитель убегающего; он ходит шагом (поддаётся,
     # как автор собирался), --target-sprint — бегает.
@@ -243,6 +250,7 @@ def main() -> int:
     rng = random.Random(args.seed)
     hunt = args.game == "hunt"
     bridge = args.game == "bridge"
+    bedwars = args.game == "bedwars"
     scripted = hunt and args.scripted_target
     hunt_cfg = CONFIG["modules"].get("hunt", {})
     arena = SimArena(CONFIG, args.bots, rng, target_name=TARGET_NAME if scripted else None,
@@ -251,7 +259,7 @@ def main() -> int:
                      box_chance=args.box_chance if scripted else 0.0,
                      sword_sharpness=hunt_cfg.get("sword_sharpness", 0) if hunt else 0,
                      hide_distance=args.hide_distance, random_kit=hunt and not args.fixed_kit,
-                     course=BridgeCourse(args.bots) if bridge else None)
+                     course=BridgeCourse(args.bots) if bridge else None, bedwars=bedwars)
     start_blocks = hunt_cfg.get("start_blocks", 0) if hunt else 0
     last_hunt = None  # (цель, начало) прошлой охоты — новая охота: арена целая, блоки выданы
     # Часы судей — игровое время симуляции, а не настоящее: "считает до
@@ -259,6 +267,7 @@ def main() -> int:
     clock = types.SimpleNamespace(time=lambda: arena.time)
     tag_game.time = clock
     hunt_game.time = clock
+    bedwars_game.time = clock
 
     loop = ai_loop.AILoop(args.game)
     outbox = Outbox()
@@ -285,7 +294,7 @@ def main() -> int:
 
     def wants_route(bot_id: int) -> bool:
         session = loop.sessions.get(bot_id)
-        return session is not None and session.task_name in ("chase", "hunt")
+        return session is not None and session.task_name in ("chase", "hunt", "bedwars")
 
     def start_hunt() -> None:  # как !start (на "человека") или !start auto (на ботов)
         loop.handle_command({"type": "command", "cmd": "hunt_start", "target": TARGET_NAME if scripted else "auto",
@@ -299,7 +308,8 @@ def main() -> int:
     next_report = args.report
     ticks = learns = 0
     mode = "проверяю (без обучения)" if args.eval else "учу"
-    game_name = ("Охота на человека" if scripted else "Охота на ботов") if hunt else "Мост" if bridge else "Салки"
+    game_name = (("Охота на человека" if scripted else "Охота на ботов") if hunt else "Мост" if bridge
+                 else "Бедварс" if bedwars else "Салки")
     print(f"[sim] {game_name}: {args.bots} ботов (учитель ведёт {len(teacher_ids)}), {mode} {args.minutes:g} мин. "
           f"Мозги — {SIM_DIR / 'brains'}.")
     try:

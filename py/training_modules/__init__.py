@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from .base import TrainingModule
+from .bedwars import BedwarsModule
 from .bridge import BridgeModule
 from .chase import ChaseModule
 from .crafting import CraftingModule
@@ -25,6 +26,7 @@ MODULES: dict[str, type[TrainingModule]] = {
     FleeModule.name: FleeModule,
     HuntModule.name: HuntModule,
     BridgeModule.name: BridgeModule,
+    BedwarsModule.name: BedwarsModule,
 }
 
 DEFAULT_MODULE = WalkingModule.name
@@ -35,7 +37,7 @@ DEFAULT_MODULE = WalkingModule.name
 # в блоке context в середине входа, следующие (bridge и дальше, до
 # MAX_TASKS2 штук) — во втором блоке context2 в конце входа.
 TASK_ORDER = ["walking", "looking", "gathering", "crafting", "follow", "chase", "flee", "hunt",
-              "bridge"]
+              "bridge", "bedwars"]
 
 # Не задача, а режим: боты роя получают РАЗНЫЕ задачи из train.mix_tasks
 # и по очереди меняют их (см. BotSession в ai_loop.py). Сети общие, так

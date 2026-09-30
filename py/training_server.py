@@ -205,6 +205,18 @@ class TrainingServer:
     def send(self, command: str) -> None:
         self._queue.put(command.lstrip("/"))
 
+    def is_bed(self, world: str, cells: list) -> bool:
+        """Цела ли кровать (бедварс, py/bedwars_game.py): в клетках head и foot
+        — кровать. Сразу, мимо очереди команд (RCON под замком). Сервер не
+        ответил — считаем целой: сломать её зря хуже, чем заметить позже."""
+        try:
+            for x, y, z in cells:
+                if "passed" not in self.rcon.command(f"execute in minecraft:{world} if block {x} {y} {z} #minecraft:beds"):
+                    return False
+        except (OSError, RconError):
+            return True
+        return True
+
     def setup_task_world(self, world: str, fills: list[str], bounds: tuple) -> None:
         """Мир задачки (плагин создаёт его пустым, config.json bot.task_worlds):
         те же правила игры, что на арене, день, участок трассы всегда
