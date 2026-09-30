@@ -183,6 +183,9 @@ final class Actions {
             case "use_item" -> useItem();
             case "equip_armor" -> equipArmor();
             case "drop_item" -> dropItem();
+            case "buy" -> {
+                // Бедварс: покупку проводит судья (py/bedwars_game.py — clear/give по RCON).
+            }
             default -> bot.log.warning("Неизвестное действие рук: " + name);
         }
     }

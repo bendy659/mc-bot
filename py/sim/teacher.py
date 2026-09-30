@@ -461,6 +461,39 @@ def bedwars_defend(state: dict, module) -> dict:
     return {"legs": legs, "head": _aim_head(yaw_error, pitch_error), "hands": "hands_idle"}
 
 
+ATTACK_BLOCKS = 48   # бедварс: столько шерсти набрать дома, прежде чем идти мостом к врагу
+DEFEND_BLOCKS = 16   # ...защитнику — на укрытие кровати
+LOW_BLOCKS = 4       # меньше — домой за шерстью
+WOOL_PRICE = 4       # железа за шерсть (modules.bedwars.wool_price)
+
+
+def bedwars_shopping(state: dict, module) -> dict | None:
+    """Экономика (py/bedwars_game.py): у своей точки появления — генератор
+    (судья отдаёт кучу железа, кто на нём стоит) и магазин (действие рук buy:
+    железо -> шерсть). Дома — копить и покупать, пока шерсти меньше нужного
+    (атакующему — на мост, защитнику — на укрытие); вдали без шерсти —
+    домой. None — дела с магазином нет."""
+    me = state["self"]
+    blocks = state.get("inventory", {}).get("blocks", 0)
+    iron = (state.get("inventory_items") or {}).get("iron_ingot", 0)
+    need = DEFEND_BLOCKS if getattr(module, "role", None) == "defend" else ATTACK_BLOCKS
+    if state.get("bedwars_shop"):
+        if blocks >= need:
+            return None
+        hands = "buy" if iron >= WOOL_PRICE else "hands_idle"
+        return {"legs": "idle", "head": _level(me, "head_idle"), "hands": hands}
+    spawn = getattr(module, "own_spawn", None)
+    if blocks >= LOW_BLOCKS or spawn is None:
+        return None
+    module.teacher_bridging = False  # домой — мост потом продолжить с его конца
+    home = {"x": spawn[0] + 0.5, "y": spawn[1], "z": spawn[2] + 0.5}
+    legs, head = _steer(aim_errors(me, home)[0])
+    ground = state.get("ground") or [3.0, 3.0, 3.0, 3.0]
+    if legs == "sprint_forward" and min(ground[1], ground[3]) < NARROW:
+        legs = "walk_forward"  # по узкому мосту — шагом
+    return {"legs": legs, "head": _level(me, head), "hands": "hands_idle"}
+
+
 def bedwars_actions(state: dict, module) -> dict:
     """Бедварс (py/bedwars_game.py): цель от судьи — враг рядом или чужая
     кровать. Враг — к нему и бить, как только удар достаёт и заряжен. Кровать
@@ -475,6 +508,9 @@ def bedwars_actions(state: dict, module) -> dict:
         return {"legs": "idle", "head": _level(me, "head_idle"), "hands": "hands_idle"}
     strike = bool(state.get("strike")) and _charged(state)
     route = state.get("route") or {}
+    shopping = None if strike else bedwars_shopping(state, module)
+    if shopping is not None:
+        return shopping
     if getattr(module, "role", None) == "defend" and module.own_bed and not (goal.get("h") or 0) > 0:
         actions = bedwars_defend(state, module)
         if strike:

@@ -23,7 +23,7 @@ from .physics import HALF_WIDTH, HEIGHT, Body, physics_tick, step_ahead
 from .route import RoutePlanner
 from .teacher import flee_actions
 from .vision import EYE_HEIGHT, Vision, raycast, ground_probe
-from .world import AIR, BLOCK_NAMES, COLLIDES, DROPS, FULL_CUBE, HAND_HARVEST, HARDNESS, PASS_THROUGH, SHAPES, ArenaWorld
+from .world import AIR, BLOCK_ID, BLOCK_NAMES, COLLIDES, DROPS, FULL_CUBE, HAND_HARVEST, HARDNESS, PASS_THROUGH, SHAPES, ArenaWorld
 
 BEDWARS_MAPS = Path(__file__).resolve().parents[2] / "data" / "bedwars" / "maps"  # сетки карт (py/bedwars_maps.py)
 BEDWARS_VOID_DEPTH = 40                   # бедварс: ниже карты на столько — страховка (судья убивает раньше, на void_y)
@@ -302,8 +302,8 @@ class SimArena:
                 "inventory_count": sum(agent.inventory.values()),
                 "world_border": border,
                 "dead": agent.dead,
-                # Как js/inventory.js: все блоки симуляции — строительные.
-                "inventory": {"blocks": sum(agent.inventory.values()), "food": 0, "armor_items": 0, "armor_worn": 0,
+                # Как js/inventory.js: строительные — блоки (слитки бедварса — нет).
+                "inventory": {"blocks": _block_count(agent.inventory), "food": 0, "armor_items": 0, "armor_worn": 0,
                               "held": self._held(agent)},
                 "inventory_items": dict(agent.inventory),
                 "humans": self._humans(),
@@ -625,8 +625,9 @@ class SimArena:
     @staticmethod
     def _held_block(agent: Agent) -> str | None:
         """Что в руке: первый блок инвентаря (как слот 0 хотбара у бота в игре:
-        выкопанное ложится туда, он и выбран) или None — рука пуста."""
-        return next((name for name, count in agent.inventory.items() if count > 0), None)
+        выкопанное ложится туда, он и выбран) или None — рука пуста. Слитки
+        (бедварс: железо, золото) — не блоки: их не ставят."""
+        return next((name for name, count in agent.inventory.items() if count > 0 and name in BLOCK_ID), None)
 
     def _start_dig(self, agent: Agent) -> None:
         hit = center_hit(self.world, agent.eye(), agent.body.yaw, agent.body.pitch)
@@ -906,9 +907,18 @@ class SimArena:
                     agent.inventory[item] = agent.inventory.get(item, 0) + count
             return
         if words[0] == "clear" and len(words) >= 2:
+            item = words[2].split(":")[-1] if len(words) > 2 else None
+            count = int(words[3]) if len(words) > 3 else None
             for agent in self._named(words[1]):
-                agent.inventory = {}
-                agent.sword = False
+                if item is None:
+                    agent.inventory = {}
+                    agent.sword = False
+                elif item in agent.inventory:  # /clear <ник> <предмет> [сколько] — бедварс: плата в магазине
+                    left = 0 if count is None else agent.inventory[item] - count
+                    if left > 0:
+                        agent.inventory[item] = left
+                    else:
+                        del agent.inventory[item]
             return
         if words[0] == "mcbot" and len(words) >= 3 and words[1] == "bedwars":
             self.load_map(" ".join(words[2:]))
@@ -980,6 +990,11 @@ class SimArena:
             agent.body.teleport(x + 0.5, self.world.top_y(x, z), z + 0.5)
             agent.body.yaw = self.rng.uniform(-math.pi, math.pi)
             agent.route = RoutePlanner(self.world, self.config["route"])
+
+
+def _block_count(inventory: dict) -> int:
+    """Сколько строительных блоков (слитки бедварса — не блоки)."""
+    return sum(count for name, count in inventory.items() if name in BLOCK_ID)
 
 
 def place_front_cell(world: ArenaWorld, eye: tuple, yaw: float, pitch: float, pos) -> tuple | None:

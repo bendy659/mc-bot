@@ -12,9 +12,11 @@ py/bedwars_game.py).
   - kill_reward — убил врага (ударил последним);
   - bed_lost_penalty — сломали свою кровать (всей команде);
   - win_reward / lose_penalty — конец игры (исход от судьи — конец эпизода);
-  - death_penalty — смерть (в бою или в пустоте).
+  - death_penalty — смерть (в бою или в пустоте);
+  - buy_reward — купил шерсть (блоки — только за железо с генератора).
 Руки — бить (и копать: кровать, чужие блоки на пути), столб под себя, блок
-перед собой; ноги и голова — все действия (мост крадучись — sneak_back).
+перед собой, купить (buy — у своей точки появления, проводит судья); ноги и
+голова — все действия (мост крадучись — sneak_back).
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from .targets import times
 
 class BedwarsModule(HuntModule):
     name = "bedwars"
+    allowed_actions = {"hands": ["hands_idle", "attack_center", "place_below", "place_front", "buy"]}
 
     def __init__(self, config: dict):
         super().__init__(config)
@@ -42,6 +45,8 @@ class BedwarsModule(HuntModule):
         self.role: str | None = None      # от судьи: "attack" или "defend"
         self.own_bed: dict | None = None  # от судьи: своя кровать {"head", "foot"}
         self.enemy_bed: dict | None = None  # от судьи: чужая кровать, пока цела
+        self.own_spawn: list | None = None  # от судьи: своя точка появления (генератор, магазин)
+        self.buy_reward = config["modules"].get("bedwars", {}).get("buy_reward", 1.0)
         self.teacher_cover: dict = {}     # учитель-защитник: какие клетки вокруг кровати уже закрыты
 
     def reset(self, state: dict) -> None:
@@ -69,6 +74,7 @@ class BedwarsModule(HuntModule):
             if event not in ("won", "lost"):  # исходы игры считает ai_loop (_end_episode)
                 self.count(event)
             value += {"bed": self.bed_reward, "kill": self.kill_reward, "bed_lost": self.bed_lost_penalty,
+                      "bought": self.buy_reward,
                       "won": self.win_reward, "lost": self.lose_penalty}.get(event, 0.0)
         rewards = self.team(value)
         if not curr_state.get("dead"):
@@ -81,6 +87,8 @@ class BedwarsModule(HuntModule):
         rate = beds / bot_minutes * 10 if bot_minutes > 0 else 0.0
         text = f"сломал кроватей {beds} ({rate:.2f} за 10 мин на бота)"
         text += f", убил {times(events.get('kill', 0))}, попал {times(events.get('hits', 0))}"
+        if events.get("bought"):
+            text += f", купил шерсти {times(events['bought'])}"
         if events.get("won") or events.get("lost"):
             text += f"; игр: победа {events.get('won', 0)}, поражение {events.get('lost', 0)}"
         if events.get("time_up"):

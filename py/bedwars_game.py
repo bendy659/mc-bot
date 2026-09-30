@@ -38,7 +38,8 @@ WON = "won"          # исход эпизода: команда победил�
 LOST = "lost"        # команда проиграла — у выбывших эпизод кончился смертью
 BED = "bed"          # сломал чужую кровать
 BED_LOST = "bed_lost"  # сломали твою кровать
-KILL = "kill"        # убил врага (последний, кто его ударил)
+KILL = "kill"
+BOUGHT = "bought"    # купил шерсть        # убил врага (последний, кто его ударил)
 TIME_UP = "time_up"
 ATTACK = "attack"    # роль: к чужой кровати
 DEFEND = "defend"    # роль: закрыть свою кровать и стоять у неё
@@ -69,11 +70,19 @@ class BedwarsGame:
         self.maps = [m for m in cfg.get("maps", names) if m in names]
         self.game_seconds = cfg.get("game_seconds", 300.0)
         self.pause = cfg.get("restart_pause_seconds", 3.0)
-        self.start_blocks = cfg.get("start_blocks", 64)
+        self.start_blocks = cfg.get("start_blocks", 0)
         self.fight_radius = cfg.get("fight_radius", 6.0)
         self.guard_radius = cfg.get("guard_radius", 10.0)
         self.straight_pairs = cfg.get("straight_pairs", True)
         self.respawn_seconds = cfg.get("respawn_seconds", 5.0)
+        # Экономика: генератор у точки появления команды, магазин там же.
+        self.iron_seconds = cfg.get("iron_seconds", 0.3)
+        self.gold_seconds = cfg.get("gold_seconds", 4.0)
+        self.iron_cap = cfg.get("iron_cap", 64)
+        self.gold_cap = cfg.get("gold_cap", 16)
+        self.wool_price = cfg.get("wool_price", 4)
+        self.wool_amount = cfg.get("wool_amount", 16)
+        self.shop_radius = cfg.get("shop_radius", 2.5)
         self.world = config["bot"].get("task_worlds", {}).get(BEDWARS)
         self.map: dict | None = None      # описание карты (json)
         self.teams: list[dict] = []       # две команды: color, bed, spawn, bed_alive, members
@@ -148,8 +157,7 @@ class BedwarsGame:
             self._spawn(session_id, now, kit=True)
 
     def _spawn(self, session_id: int, now: float, kit: bool) -> None:
-        """На свою точку появления, лицом к центру карты; набор — заново
-        (экономики пока нет: меч и шерсть своего цвета)."""
+        """На свою точку появления, лицом к центру карты; набор — заново (меч)."""
         player = self.players[session_id]
         team = self.teams[player["team"]]
         x, y, z = team["spawn"]
@@ -160,8 +168,11 @@ class BedwarsGame:
         name = player["name"]
         commands = []
         if kit:
-            commands += [f"gamemode survival {name}", f"clear {name}", f"give {name} minecraft:wooden_sword 1",
-                         f"give {name} minecraft:{team['color']}_wool {self.start_blocks}"]
+            # Как на Hypixel: только деревянный меч; блоки — за железо с генератора
+            # (автор: "насильно выдаёшь ресурсы"). start_blocks > 0 — старый режим.
+            commands += [f"gamemode survival {name}", f"clear {name}", f"give {name} minecraft:wooden_sword 1"]
+            if self.start_blocks > 0:
+                commands.append(f"give {name} minecraft:{team['color']}_wool {self.start_blocks}")
         teleport = f"tp {name} {x + 0.5} {y} {z + 0.5} {yaw:.0f} 0"
         commands.append(f"execute in minecraft:{self.world} run {teleport}" if self.world else teleport)
         self.commands += commands
@@ -241,6 +252,53 @@ class BedwarsGame:
             return
         player["out"] = True
         self.commands.append(f"gamemode spectator {player['name']}")
+
+    # --- экономика: генератор и магазин -------------------------------------------
+
+    def economy_tick(self, now: float | None = None) -> None:
+        """Генераторы: у каждой команды куча железа и золота у точки появления
+        растёт (iron_seconds, gold_seconds; не больше iron_cap, gold_cap)."""
+        now = time.time() if now is None else now
+        if self.started_at is None:
+            return
+        for team in self.teams:
+            last = team.setdefault("economy_at", now)
+            team["iron_timer"] = team.get("iron_timer", 0.0) + now - last
+            team["gold_timer"] = team.get("gold_timer", 0.0) + now - last
+            team["economy_at"] = now
+            while team["iron_timer"] >= self.iron_seconds:
+                team["iron_timer"] -= self.iron_seconds
+                team["iron"] = min(team.get("iron", 0) + 1, self.iron_cap)
+            while team["gold_timer"] >= self.gold_seconds:
+                team["gold_timer"] -= self.gold_seconds
+                team["gold"] = min(team.get("gold", 0) + 1, self.gold_cap)
+
+    def at_shop(self, session_id: int) -> bool:
+        """Стоит у своей точки появления — там генератор и магазин."""
+        player = self.players.get(session_id)
+        if player is None or player["pos"] is None or player["dead"] or player["out"] or not player["ready"]:
+            return False
+        x, y, z = self.teams[player["team"]]["spawn"]
+        return math.dist(player["pos"], (x + 0.5, y, z + 0.5)) <= self.shop_radius
+
+    def collect_and_buy(self, session_id: int, state: dict, hands_action: str | None) -> None:
+        """У своего генератора — забрать его кучу (give); решил купить (действие
+        рук buy) и хватает железа — шерсть своего цвета за железо (clear/give).
+        Магазин без меню: бот не умеет кликать по окнам, и покупка — одно действие."""
+        if not self.at_shop(session_id):
+            return
+        player = self.players[session_id]
+        team = self.teams[player["team"]]
+        name = player["name"]
+        for item, key in (("iron_ingot", "iron"), ("gold_ingot", "gold")):
+            if team.get(key, 0) > 0:
+                self.commands.append(f"give {name} minecraft:{item} {team[key]}")
+                team[key] = 0
+        iron = (state.get("inventory_items") or {}).get("iron_ingot", 0)
+        if hands_action == "buy" and iron >= self.wool_price:
+            self.commands += [f"clear {name} minecraft:iron_ingot {self.wool_price}",
+                              f"give {name} minecraft:{team['color']}_wool {self.wool_amount}"]
+            self._event(session_id, BOUGHT)
 
     def beds_to_check(self, now: float | None = None) -> list[tuple[int, list]]:
         """Кровати, которые ещё целы: (команда, [клетки head и foot]). Первые
@@ -342,6 +400,11 @@ class BedwarsGame:
         """Своя кровать ({"head", "foot"}) — защитнику (учитель закрывает её шерстью)."""
         player = self.players.get(session_id)
         return None if player is None else self.teams[player["team"]]["bed"]
+
+    def own_spawn(self, session_id: int) -> list | None:
+        """Своя точка появления (там генератор и магазин) — учителю: за шерстью домой."""
+        player = self.players.get(session_id)
+        return None if player is None else self.teams[player["team"]]["spawn"]
 
     def enemy_bed(self, session_id: int) -> dict | None:
         """Чужая кровать, пока цела, — учителю: мост строить к ней, даже когда

@@ -64,6 +64,7 @@ CHANNELS = {
         "use_item",        # съесть еду (если голоден) или использовать предмет в руке
         "equip_armor",     # надеть броню из инвентаря
         "drop_item",       # выбросить то, что в руке
+        "buy",             # бедварс: купить шерсть у своей точки появления (проводит судья, py/bedwars_game.py)
     ],
 }
 
@@ -88,6 +89,8 @@ ACTION_NAMES = [
     # 2026-09-28: мост (bridge). Всё, что дальше CONTEXT_ACTIONS (22), сеть
     # видит во втором блоке контекста в конце входа (state_encoder.context2).
     "sneak_back", "sneak",
+    # 2026-09-30: бедварс — покупка без меню (тела бота её только принимают).
+    "buy",
 ]
 assert sorted(ACTION_NAMES) == sorted(name for actions in CHANNELS.values() for name in actions), \
     "ACTION_NAMES должен содержать ровно действия из CHANNELS"

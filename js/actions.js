@@ -325,6 +325,8 @@ class ActionExecutor {
             case 'drop_item':
                 this.dropItem();
                 break;
+            case 'buy':
+                break; // бедварс: покупку проводит судья (clear/give по RCON)
             default:
                 console.warn(`[actions] Неизвестное действие рук: ${name}`);
         }
@@ -697,6 +699,7 @@ const CHANNELS = {
         'use_item',
         'equip_armor',
         'drop_item',
+        'buy', // бедварс: покупку проводит судья (py/bedwars_game.py) — телу делать нечего
     ],
 };
 

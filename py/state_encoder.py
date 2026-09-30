@@ -76,6 +76,8 @@ def encode_state(state: dict, config: dict, task_index: int, prev_actions: dict)
         encode_context2(task_index, prev_actions),
         torch.tensor(_encode_ground(state), dtype=torch.float32),
         torch.tensor([1.0 if state.get("can_place") else 0.0], dtype=torch.float32),
+        torch.tensor(_encode_resources(state), dtype=torch.float32),
+        torch.tensor([1.0 if state.get("bedwars_shop") else 0.0], dtype=torch.float32),
     ])
     return vision, scalars
 
@@ -285,6 +287,16 @@ def _encode_goal(state: dict) -> list[float]:
     return [rise, flat]
 
 
+IRON_SCALE = 64.0  # столько железа — вход 1 (больше — тоже 1)
+GOLD_SCALE = 16.0
+
+
+def _encode_resources(state: dict) -> list[float]:
+    """Железо и золото в инвентаре (бедварс: чем платить в магазине)."""
+    items = state.get("inventory_items") or {}
+    return [min(items.get("iron_ingot", 0) / IRON_SCALE, 1.0), min(items.get("gold_ingot", 0) / GOLD_SCALE, 1.0)]
+
+
 def _encode_ground(state: dict) -> list[float]:
     """Чувство пола (js/vision.js: groundProbe): сколько пола до края впереди,
     справа, сзади и слева, в долях GROUND_RANGE, со знаком — над пустотой
@@ -417,6 +429,11 @@ def scalar_layout(config: dict) -> dict[str, slice]:
         # и по чувству пола "в окне" и "замерла чуть раньше" различались
         # только в третьем знаке (2026-09-29).
         ("place", 1),
+        # Бедварс (2026-09-30): чем платить — железо и золото в инвентаре (из
+        # inventory_items, его шлют все тела) и "стою у своего магазина" (судья
+        # кладёт state.bedwars_shop): без них сеть не знала бы, выйдет ли покупка.
+        ("resources", 2),
+        ("shop", 1),
     ]
     layout, start = {}, 0
     for name, size in sizes:

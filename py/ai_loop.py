@@ -771,6 +771,10 @@ class AILoop:
                 game.new_game(players, lambda sid: bot_name(sid, self.config), now)
                 print(f"[ai] {game.describe()}")
         game.see_bot(session.id, state, now)
+        game.economy_tick(now)
+        # Прошлое решение рук — покупка (buy) — проводит судья; у генератора — ресурсы.
+        game.collect_and_buy(session.id, state, (session.prev_actions or {}).get("hands"))
+        state["bedwars_shop"] = game.at_shop(session.id)  # вход сети "shop": покупка сейчас сработает
         if game.started_at is not None and now >= self._bed_check_at:
             self._bed_check_at = now + 0.5
             for team_index, cells in game.beds_to_check(now):
@@ -789,6 +793,7 @@ class AILoop:
         session.module.role = game.role_of(session.id)      # учителю: защитник или атакующий
         session.module.own_bed = game.own_bed(session.id)
         session.module.enemy_bed = game.enemy_bed(session.id)
+        session.module.own_spawn = game.own_spawn(session.id)
         for command in game.take_commands():
             self.server.send(command)
 
