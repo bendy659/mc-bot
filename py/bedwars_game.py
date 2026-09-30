@@ -216,6 +216,10 @@ class BedwarsGame:
                     self._event(session_id, TIME_UP)
                 elif not player["out"] or index == winner:
                     self._event(session_id, WON if index == winner else LOST)
+                if not player["out"]:
+                    # До новой игры — зритель: иначе победители стояли столбом,
+                    # пока доигрывают другие матчи (автор: "просто стоят и тупят").
+                    self.commands.append(f"gamemode spectator {player['name']}")
         self.stats["time_up" if winner is None else "decided"] += 1
 
     def end_game(self, now: float | None = None) -> None:
