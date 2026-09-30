@@ -394,6 +394,71 @@ def bridge_rescue(state: dict) -> dict | None:
 BED_REACH = 4.0     # бедварс: кровать ближе стольки (от глаз) — наводиться и копать
 EDGE_AHEAD = 1.0    # бедварс: пола впереди меньше стольки — край острова, начинать мост
 EDGE_WALK = 2.9     # ...а меньше стольки (чувство пола видит до 3) — к краю шагом, не бегом
+STUCK_DECISIONS = 10  # мост: пятится и не двигается столько решений — упёрся, снова к краю
+ENEMY_REACH = 3.5   # враг ближе — бить; дальше и за пустотой — строить мост дальше
+NARROW = 1.0        # пола сбоку меньше — узкий мост: не бегать
+
+
+COVER_GIVE_UP = 40   # защитник: столько решений не вышло закрыть клетку — дальше
+COVER_REACH = 4.0    # ...ставить блок, когда опора ближе стольки от глаз
+COVER_TOO_CLOSE = 1.3  # ...ближе — сам стоит в клетке или вплотную: отойти
+GUARD_RADIUS = 2.5   # закрыл — стоять у кровати не дальше стольки
+
+
+def _cover_cells(bed: dict) -> list[tuple]:
+    """Клетки вокруг кровати, которые закрывает защитник: над обеими
+    половинами и по бокам (как первый слой защиты в бедварсе)."""
+    halves = [tuple(bed["head"]), tuple(bed["foot"])]
+    cells = [(x, y + 1, z) for x, y, z in halves]
+    for x, y, z in halves:
+        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            cell = (x + dx, y, z + dz)
+            if cell not in halves and cell not in cells:
+                cells.append(cell)
+    return cells
+
+
+def bedwars_defend(state: dict, module) -> dict:
+    """Защитник (роль от судья): закрыть свою кровать шерстью — сверху и с
+    боков (place_front на верх кровати или пола рядом: блок встаёт в клетку
+    над гранью), потом стоять у неё; враг рядом — цель от судьи, бой (это уже
+    bedwars_actions). Какие клетки закрыты, учитель не видит — помнит, куда
+    ставил (module.teacher_cover), а клетку, куда блок не встаёт, считает
+    занятой."""
+    me = state["self"]
+    bed = module.own_bed
+    cover = module.teacher_cover
+    blocks = state.get("inventory", {}).get("blocks", 0)
+    todo = [c for c in _cover_cells(bed) if cover.get(c, 0) is not True and cover.get(c, 0) < COVER_GIVE_UP]
+    center = ((bed["head"][0] + bed["foot"][0]) / 2 + 0.5, bed["head"][1], (bed["head"][2] + bed["foot"][2]) / 2 + 0.5)
+    if not todo or blocks <= 0:
+        if math.hypot(me["x"] - center[0], me["z"] - center[2]) > GUARD_RADIUS:
+            legs, head = _steer(aim_errors(me, {"x": center[0], "y": center[1], "z": center[2]})[0])
+            return {"legs": "walk_forward" if legs == "sprint_forward" else legs, "head": _level(me, head),
+                    "hands": "hands_idle"}
+        return {"legs": "idle", "head": _level(me, "head_idle"), "hands": "hands_idle"}
+    cell = todo[0]
+    cover[cell] = cover.get(cell, 0) + 1
+    over_bed = (cell[0], cell[1] - 1, cell[2]) in (tuple(bed["head"]), tuple(bed["foot"]))
+    # Опора — верх кровати (0.5625) или верх пола под клеткой.
+    point = {"x": cell[0] + 0.5, "y": cell[1] - 1 + (0.5625 if over_bed else 1.0) - 0.05, "z": cell[2] + 0.5}
+    eye = (me["x"], me["y"] + 1.62, me["z"])
+    distance = math.dist(eye, (point["x"], point["y"], point["z"]))
+    yaw_error, pitch_error = aim_errors(me, point)
+    if math.hypot(me["x"] - point["x"], me["z"] - point["z"]) < COVER_TOO_CLOSE:
+        return {"legs": "walk_back", "head": _aim_head(yaw_error, pitch_error), "hands": "hands_idle"}
+    if distance > COVER_REACH:
+        legs, head = _steer(yaw_error)
+        return {"legs": "walk_forward" if legs == "sprint_forward" else legs, "head": _level(me, head),
+                "hands": "hands_idle"}
+    legs = ("turn_left" if yaw_error > 0 else "turn_right") if abs(yaw_error) > COARSE else "idle"
+    aimed = abs(yaw_error) < 0.12 and abs(pitch_error) < 0.12
+    if aimed and state.get("can_place"):
+        cover[cell] = True
+        return {"legs": legs, "head": "head_idle", "hands": "place_front"}
+    if aimed:
+        cover[cell] = cover[cell] + 5  # прицелился, а блок не встаёт — клетка, видно, занята
+    return {"legs": legs, "head": _aim_head(yaw_error, pitch_error), "hands": "hands_idle"}
 
 
 def bedwars_actions(state: dict, module) -> dict:
@@ -410,15 +475,38 @@ def bedwars_actions(state: dict, module) -> dict:
         return {"legs": "idle", "head": _level(me, "head_idle"), "hands": "hands_idle"}
     strike = bool(state.get("strike")) and _charged(state)
     route = state.get("route") or {}
+    if getattr(module, "role", None) == "defend" and module.own_bed and not (goal.get("h") or 0) > 0:
+        actions = bedwars_defend(state, module)
+        if strike:
+            actions["hands"] = "attack_center"
+        return actions
+    ground = state.get("ground") or [3.0, 3.0, 3.0, 3.0]
     if (goal.get("h") or 0) > 0:  # враг (у кровати-точки роста нет)
-        legs, head = _steer(aim_errors(me, module.observe(state)["target"])[0])
-        return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
+        flat = math.hypot(goal["x"] - me["x"], goal["z"] - me["z"])
+        bed = getattr(module, "enemy_bed", None)
+        if not route.get("complete") and flat > ENEMY_REACH and bed is not None:
+            # До врага не дойти (он за пустотой), а бить далеко — не бросать мост
+            # и не бежать к нему в пропасть (автор: "мостостроители перестают
+            # строиться и ссыкуют рядом с врагами, падают"): строить дальше к кровати.
+            head_cell = bed["head"]
+            state = dict(state, target={"x": head_cell[0] + 0.5, "y": head_cell[1] + 0.5,
+                                        "z": head_cell[2] + 0.5, "h": 0.0})
+            goal = state["target"]
+        else:
+            legs, head = _steer(aim_errors(me, module.observe(state)["target"])[0])
+            if legs == "sprint_forward" and min(ground[1], ground[3]) < NARROW:
+                legs = "walk_forward"  # узкий мост: к врагу шагом, бегом слетал
+            return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
     eye = (me["x"], me["y"] + 1.62, me["z"])
     if math.dist(eye, (goal["x"], goal["y"], goal["z"])) <= BED_REACH:
         yaw_error, pitch_error = aim_errors(me, goal)
         legs = ("turn_left" if yaw_error > 0 else "turn_right") if abs(yaw_error) > COARSE else "idle"
         center = state.get("center_block")
-        aimed = center is not None and center["name"].endswith("_bed") and center["distance"] <= 4.5
+        # Кровать закрыта шерстью (защитник соперника) — прицел упирается в
+        # шерсть: копать её (ломается только поставленное игроками, а шерсть
+        # на карте ставят только они). Автор: "блоки не особо хотят копать".
+        aimed = (center is not None and center["distance"] <= 4.5
+                 and (center["name"].endswith("_bed") or center["name"].endswith("_wool")))
         return {"legs": legs, "head": _aim_head(yaw_error, pitch_error),
                 "hands": "attack_center" if aimed or strike else "hands_idle"}
     if route.get("complete"):
@@ -438,6 +526,16 @@ def bedwars_actions(state: dict, module) -> dict:
         return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
     module.teacher_bridging = True
     actions = bridge_actions(state)
+    # Мост начат не у края (пол впереди кончился у препятствия, а не у пустоты)
+    # и пятится в стену: стоит на месте — снова к краю по маршруту.
+    moving = abs(me.get("move_forward", 0.0)) + abs(me.get("move_right", 0.0)) > 0.01
+    if actions["legs"] in ("walk_back", "sneak_back") and not moving and (state.get("ground") or [0.0])[0] > 0:
+        module.teacher_stuck = getattr(module, "teacher_stuck", 0) + 1
+        if module.teacher_stuck >= STUCK_DECISIONS:
+            module.teacher_bridging = False
+            module.teacher_stuck = 0
+    else:
+        module.teacher_stuck = 0
     if strike:
         actions["hands"] = "attack_center"
     return actions

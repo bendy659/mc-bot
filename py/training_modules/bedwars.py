@@ -39,10 +39,15 @@ class BedwarsModule(HuntModule):
         self.enemy_ids: set = set()      # кого можно бить (судья), для награды за удары
         self.game_events: list[str] = []  # события от судьи с прошлого перехода (bedwars_game)
         self.teacher_bridging = False     # учитель симуляции уже строит мост (py/sim/teacher.py)
+        self.role: str | None = None      # от судьи: "attack" или "defend"
+        self.own_bed: dict | None = None  # от судьи: своя кровать {"head", "foot"}
+        self.enemy_bed: dict | None = None  # от судьи: чужая кровать, пока цела
+        self.teacher_cover: dict = {}     # учитель-защитник: какие клетки вокруг кровати уже закрыты
 
     def reset(self, state: dict) -> None:
         super().reset(state)
         self.teacher_bridging = False
+        self.teacher_cover = {}
 
     def compute_reward(self, prev_state: dict, curr_state: dict, actions: dict) -> dict:
         # Прогресс к цели, давление времени, наклон взгляда — как у водящего

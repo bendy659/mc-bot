@@ -39,7 +39,12 @@ LOST = "lost"        # команда проиграла — у выбывших
 BED = "bed"          # сломал чужую кровать
 BED_LOST = "bed_lost"  # сломали твою кровать
 KILL = "kill"        # убил врага (последний, кто его ударил)
-TIME_UP = "time_up"  # игра не кончилась за game_seconds — ничья, новая игра (обрыв, не конец эпизода)
+TIME_UP = "time_up"
+ATTACK = "attack"    # роль: к чужой кровати
+DEFEND = "defend"    # роль: закрыть свою кровать и стоять у неё
+# Цвета команд (bedwars_maps.TEAM_COLORS) -> цвета /team сервера.
+TEAM_COLOR = {"red": "red", "blue": "blue", "lime": "green", "yellow": "yellow", "cyan": "aqua", "white": "white",
+              "pink": "light_purple", "gray": "gray"}  # игра не кончилась за game_seconds — ничья, новая игра (обрыв, не конец эпизода)
 
 MAPS_DIR = Path(__file__).resolve().parent.parent / "data" / "bedwars" / "maps"
 READY_DISTANCE = 1.5   # бот ближе стольки к своей точке появления — телепорт дошёл
@@ -66,6 +71,7 @@ class BedwarsGame:
         self.pause = cfg.get("restart_pause_seconds", 3.0)
         self.start_blocks = cfg.get("start_blocks", 64)
         self.fight_radius = cfg.get("fight_radius", 6.0)
+        self.guard_radius = cfg.get("guard_radius", 10.0)
         self.straight_pairs = cfg.get("straight_pairs", True)
         self.respawn_seconds = cfg.get("respawn_seconds", 5.0)
         self.world = config["bot"].get("task_worlds", {}).get(BEDWARS)
@@ -113,13 +119,26 @@ class BedwarsGame:
         self.players = {}
         for index, session_id in enumerate(ids):
             team = index % 2
+            # Первый в команде (если в ней двое и больше) — защитник: закрыть
+            # свою кровать шерстью и стоять у неё (автор: "даже кровать не
+            # защищают"); остальные — в атаку.
+            role = DEFEND if index < 2 and len(ids) >= 4 else ATTACK
             self.teams[team]["members"].append(session_id)
-            self.players[session_id] = {"team": team, "name": name_of(session_id), "entity_id": None, "pos": None,
-                                        "dead": False, "out": False, "ready": False, "sent": 0.0, "states": 0,
-                                        "hit_by": None, "hit_at": 0.0}
+            self.players[session_id] = {"team": team, "role": role, "name": name_of(session_id), "entity_id": None,
+                                        "pos": None, "dead": False, "out": False, "ready": False, "sent": 0.0,
+                                        "states": 0, "hit_by": None, "hit_at": 0.0}
         self.started_at = now
         self.stats["games"] += 1
         self.commands.append(f"mcbot bedwars {name}")
+        # Команды сервера (/team): ник цветом своей команды, по своим не бьёшь —
+        # и людям видно, кто за кого (автор: "рассыпались по командам").
+        for color in TEAM_COLOR:
+            self.commands.append(f"team remove bw_{color}")
+        for team in self.teams:
+            color = team["color"]
+            self.commands += [f"team add bw_{color}", f"team modify bw_{color} color {TEAM_COLOR[color]}",
+                              f"team modify bw_{color} friendlyFire false",
+                              f"team join bw_{color} {' '.join(self.players[sid]['name'] for sid in team['members'])}"]
         for session_id in ids:
             self._spawn(session_id, now, kit=True)
 
@@ -279,8 +298,10 @@ class BedwarsGame:
                 if p["team"] != player["team"] and not p["out"] and p["entity_id"] is not None]
 
     def target_for(self, session_id: int) -> dict | None:
-        """Враг ближе fight_radius — бить его; иначе чужая кровать; кровати нет —
-        ближайший враг (сущность; x/y/z — запасная позиция)."""
+        """Атакующему: враг ближе fight_radius — бить его; иначе чужая кровать;
+        кровати нет — ближайший враг. Защитнику: враг у своей кровати (ближе
+        guard_radius) или рядом с ним — бить; иначе своя кровать (стоять у
+        неё). Враг — сущность (x/y/z — запасная позиция)."""
         player = self.players.get(session_id)
         if player is None or player["pos"] is None:
             return None
@@ -289,6 +310,16 @@ class BedwarsGame:
                    and p["entity_id"] is not None]
         nearest = min(enemies, key=lambda p: math.dist(p["pos"], player["pos"]), default=None)
         enemy_team = self.teams[1 - player["team"]]
+        own_team = self.teams[player["team"]]
+        if player["role"] == DEFEND and own_team["bed_alive"]:
+            bed = own_team["bed"]["head"]
+            threats = [p for p in enemies if math.dist(p["pos"], bed) <= self.guard_radius
+                       or math.dist(p["pos"], player["pos"]) <= self.fight_radius]
+            threat = min(threats, key=lambda p: math.dist(p["pos"], player["pos"]), default=None)
+            if threat is not None:
+                x, y, z = threat["pos"]
+                return {"entity_id": threat["entity_id"], "x": x, "y": y, "z": z}
+            return {"x": bed[0] + 0.5, "y": bed[1] + 0.5, "z": bed[2] + 0.5}
         if nearest is not None and (math.dist(nearest["pos"], player["pos"]) <= self.fight_radius
                                     or not enemy_team["bed_alive"]):
             x, y, z = nearest["pos"]
@@ -297,6 +328,24 @@ class BedwarsGame:
             x, y, z = enemy_team["bed"]["head"]
             return {"x": x + 0.5, "y": y + 0.5, "z": z + 0.5}
         return None
+
+    def role_of(self, session_id: int) -> str | None:
+        player = self.players.get(session_id)
+        return None if player is None else player["role"]
+
+    def own_bed(self, session_id: int) -> dict | None:
+        """Своя кровать ({"head", "foot"}) — защитнику (учитель закрывает её шерстью)."""
+        player = self.players.get(session_id)
+        return None if player is None else self.teams[player["team"]]["bed"]
+
+    def enemy_bed(self, session_id: int) -> dict | None:
+        """Чужая кровать, пока цела, — учителю: мост строить к ней, даже когда
+        цель на время — враг."""
+        player = self.players.get(session_id)
+        if player is None:
+            return None
+        team = self.teams[1 - player["team"]]
+        return team["bed"] if team["bed_alive"] else None
 
     def team_of(self, session_id: int) -> int | None:
         player = self.players.get(session_id)

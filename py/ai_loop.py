@@ -786,6 +786,9 @@ class AILoop:
                 session.module.game_events.append(event)
         session.module.game_target = game.target_for(session.id)
         session.module.enemy_ids = set(game.enemy_ids(session.id))
+        session.module.role = game.role_of(session.id)      # учителю: защитник или атакующий
+        session.module.own_bed = game.own_bed(session.id)
+        session.module.enemy_bed = game.enemy_bed(session.id)
         for command in game.take_commands():
             self.server.send(command)
 
@@ -1302,11 +1305,16 @@ def main():
     # симуляции после 15 минут игры — убегающие стоят и крутятся, водящие
     # пятятся и прыгают). Бот в !greedy показывает сеть, а не учителя.
     teachers = loop.config["train"].get("live_teachers", 0)
-    if teachers:
+    # Бедварс — своё число (по умолчанию все боты): сеть бедварса пока почти не
+    # обучена, и под ней боты строили ерунду и не дрались (автор, 2026-09-30);
+    # ходы учителя заодно учат сеть. Когда она подрастёт — уменьшить.
+    bedwars_teachers = loop.config["modules"].get("bedwars", {}).get("live_teachers", 1000)
+    if teachers or bedwars_teachers:
         from sim.teacher import teacher_actions
         loop.teacher = lambda session, state: (
             teacher_actions(session, state, loop.config, loop)
-            if session.id <= teachers and not session.greedy else None)
+            if session.id <= (bedwars_teachers if session.task_name == BEDWARS else teachers)
+            and not session.greedy else None)
         print(f"[ai] Учитель ведёт ботов 1–{teachers} в салках, охоте, на мосту и в бедварсе (train.live_teachers).")
 
     def on_sigint(sig, frame):
