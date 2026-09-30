@@ -125,9 +125,10 @@ class RoutePlanner {
                 const diagonal = dx !== 0 && dz !== 0;
                 const nx = x + dx;
                 const nz = z + dz;
-                // По диагонали — только если оба боковых прохода свободны
-                // (иначе бот цепляет угол и застревает).
-                if (diagonal && !(this.clear(x + dx, y, z) && this.clear(x, y, z + dz))) continue;
+                // По диагонали — только если по обеим боковым клеткам можно пройти:
+                // стена сбоку — бот цепляет угол и застревает; пустота сбоку —
+                // срезает угол над пропастью (на узких тропах и мостах падал).
+                if (diagonal && !(this.standable(x + dx, y, z) && this.standable(x, y, z + dz))) continue;
 
                 if (this.standable(nx, y, nz)) {
                     out.push({ x: nx, y, z: nz, step: diagonal ? Math.SQRT2 : 1, cost: diagonal ? Math.SQRT2 : 1 });
@@ -249,6 +250,9 @@ class RoutePlanner {
         }
         this.index = bestIndex;
         const waypointNode = this.path[Math.min(this.index + this.lookahead, this.path.length - 1)];
+        // Следующая клетка маршрута (учителю: на узком — от клетки к клетке, точка
+        // маршрута на lookahead вперёд на повороте тропы — наискосок через пустоту).
+        const nextNode = this.path[Math.min(this.index + 1, this.path.length - 1)];
         let length = bestDistance + this.remaining[this.index];
         if (!this.complete) {
             // Маршрут до цели не дотянулся (далеко или пути нет): остаток — по
@@ -259,6 +263,7 @@ class RoutePlanner {
         }
         return {
             waypoint: { x: waypointNode.x + 0.5, y: waypointNode.y, z: waypointNode.z + 0.5 },
+            next: { x: nextNode.x + 0.5, y: nextNode.y, z: nextNode.z + 0.5 },
             length: Math.round(length * 100) / 100,
             complete: this.complete,
         };

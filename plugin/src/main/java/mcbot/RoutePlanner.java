@@ -136,8 +136,9 @@ final class RoutePlanner {
                 boolean diagonal = dx != 0 && dz != 0;
                 int nx = x + dx;
                 int nz = z + dz;
-                // По диагонали — только если не срезаем угол стены.
-                if (diagonal && !(clear(x + dx, y, z) && clear(x, y, z + dz))) continue;
+                // По диагонали — только если по обеим боковым клеткам можно пройти
+                // (стена — цепляет угол; пустота — срезал угол над пропастью).
+                if (diagonal && !(standable(x + dx, y, z) && standable(x, y, z + dz))) continue;
                 if (standable(nx, y, nz)) {
                     out.add(new Step(nx, y, nz, diagonal ? SQRT2 : 1, diagonal ? SQRT2 : 1));
                     continue;
@@ -247,6 +248,7 @@ final class RoutePlanner {
         }
         index = bestIndex;
         Cell waypoint = path.get(Math.min(index + lookahead, path.size() - 1));
+        Cell next = path.get(Math.min(index + 1, path.size() - 1)); // следующая клетка (учителю)
         double length = bestDistance + remaining[index];
         if (!complete) {
             Cell end = path.get(path.size() - 1);
@@ -259,6 +261,11 @@ final class RoutePlanner {
         point.addProperty("y", waypoint.y);
         point.addProperty("z", waypoint.z + 0.5);
         out.add("waypoint", point);
+        JsonObject step = new JsonObject();
+        step.addProperty("x", next.x + 0.5);
+        step.addProperty("y", next.y);
+        step.addProperty("z", next.z + 0.5);
+        out.add("next", step);
         out.addProperty("length", Math.round(length * 100) / 100.0);
         out.addProperty("complete", complete);
         return out;

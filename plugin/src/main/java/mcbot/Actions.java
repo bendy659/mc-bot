@@ -159,6 +159,12 @@ final class Actions {
                 c.sneak = true;
             });
             case "sneak" -> hold(() -> c.sneak = true);
+            // Вперёд крадучись: к краю (угол узкой тропы, конец моста) — с него
+            // крадущийся не сорвётся, даже если следующее решение опоздало.
+            case "sneak_forward" -> hold(() -> {
+                c.forward = true;
+                c.sneak = true;
+            });
             default -> bot.log.warning("Неизвестное действие ног: " + name);
         }
     }

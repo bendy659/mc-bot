@@ -241,6 +241,11 @@ class ActionExecutor {
             case 'sneak':
                 this.holdMove({ sneak: true });
                 break;
+            case 'sneak_forward':
+                // Вперёд крадучись: к краю (угол узкой тропы, конец моста) — с
+                // него крадущийся не сорвётся, даже если следующее решение опоздало.
+                this.holdMove({ forward: true, sneak: true });
+                break;
             default:
                 console.warn(`[actions] Неизвестное действие ног: ${name}`);
         }
@@ -688,6 +693,7 @@ const CHANNELS = {
         'sneak_back',
         'sneak',
         'turn_around', // разворот на 180° за одно решение (враг сзади)
+        'sneak_forward', // вперёд крадучись (к краю — не сорвётся)
     ],
     head: [
         'head_idle',

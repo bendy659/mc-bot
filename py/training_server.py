@@ -113,7 +113,9 @@ class TrainingServer:
         cfg = config.get("server", {}).get("rcon")
         if not cfg:
             return None
-        rcon = Rcon(cfg.get("host", "127.0.0.1"), cfg["port"], cfg["password"])
+        # 10 с: команда загрузить участок упражнений бедварса (/mcbot drill) в первый
+        # раз генерирует чанки дольше 3 с — RCON бросал ожидание и слал её снова.
+        rcon = Rcon(cfg.get("host", "127.0.0.1"), cfg["port"], cfg["password"], timeout=10.0)
         try:
             rcon.connect()
             pulse = re.search(r"has (-?\d+)", rcon.command("scoreboard players get #judge mcbot"))
@@ -207,11 +209,14 @@ class TrainingServer:
 
     def is_bed(self, world: str, cells: list) -> bool:
         """Цела ли кровать (бедварс, py/bedwars_game.py): в клетках head и foot
-        — кровать. Сразу, мимо очереди команд (RCON под замком). Сервер не
-        ответил — считаем целой: сломать её зря хуже, чем заметить позже."""
+        — кровать. Сразу, мимо очереди команд (RCON под замком). Сломана —
+        только если сервер ответил "Test failed"; не ответил или чанк не
+        загружен ("That position is not loaded") — считаем целой: сломать её зря
+        хуже, чем заметить позже."""
         try:
             for x, y, z in cells:
-                if "passed" not in self.rcon.command(f"execute in minecraft:{world} if block {x} {y} {z} #minecraft:beds"):
+                reply = self.rcon.command(f"execute in minecraft:{world} if block {x} {y} {z} #minecraft:beds")
+                if "failed" in reply.lower():
                     return False
         except (OSError, RconError):
             return True

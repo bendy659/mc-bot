@@ -25,6 +25,20 @@ team_size в команде — все на одной случайной кар
 Команды игры — строки команд сервера (их понимает и плагин по RCON, и
 симуляция: py/sim/game.py SimArena.command): загрузить карту (/mcbot
 bedwars <карта> — это и сброс карты), телепорт, набор, режим игры.
+
+Сценарий каждой новой "игры" — по весам modules.bedwars.scenarios: бедварс
+на карте (GAME) или упражнение (py/bedwars_drills.py; автор, 2026-09-30:
+"сначала нужно было оттачивать механики"):
+  - DUEL — дуэли 1 на 1 над пустотой, у каждой пары своя дорожка. Та же
+    игра, только без кроватей: упал или погиб — выбыл, матч кончен (победа —
+    DUEL_WON), через DUEL_PAUSE — реванш на новой площадке; раунд дольше
+    duel_seconds — ничья.
+  - EDGE — ходьба по краю: у каждого бота своя тропа над пустотой, цель —
+    её конец (GOAL — и сразу новая тропа); упал — смерть, через
+    drill_respawn_seconds — новая тропа; дольше edge_seconds — тоже новая.
+Упражнение длится drill_seconds, потом — новый сценарий. Упражнения — в
+своём мире (bot.task_worlds.drills; без него — только игры), дорожки строит
+судья командами fill.
 """
 
 from __future__ import annotations
@@ -35,26 +49,38 @@ import random
 import time
 from pathlib import Path
 
+from bedwars_drills import DuelLayout, EdgeLayout, clear_fill, drill_command, void_y as drill_void_y
+from bridge_course import fill_command
+
 BEDWARS = "bedwars"
 WON = "won"          # исход эпизода: команда победила (терминально)
 LOST = "lost"        # команда проиграла — у выбывших эпизод кончился смертью
 BED = "bed"          # сломал чужую кровать
 BED_LOST = "bed_lost"  # сломали твою кровать
-KILL = "kill"
-BOUGHT = "bought"    # купил шерсть        # убил врага (последний, кто его ударил)
-TIME_UP = "time_up"
+KILL = "kill"        # убил врага (последний, кто его ударил)
+BOUGHT = "bought"    # купил шерсть
+TIME_UP = "time_up"  # игра не кончилась за game_seconds — ничья, новая игра (обрыв, не конец эпизода)
+FELL = "fell"        # упал в пустоту (для сводки: смерть считает сама задачка)
+DUEL_WON = "duel_won"    # упражнение: выиграл дуэль (терминально)
+DUEL_LOST = "duel_lost"  # проиграл дуэль, оставшись живым (напарник выбыл последним; терминально)
+GOAL = "goal"        # упражнение: дошёл по тропе до цели (терминально)
+TERMINAL_EVENTS = (WON, LOST, DUEL_WON, DUEL_LOST, GOAL)  # исходы — конец эпизода (ai_loop._end_episode)
 ATTACK = "attack"    # роль: к чужой кровати
 DEFEND = "defend"    # роль: закрыть свою кровать и стоять у неё
+GAME, DUEL, EDGE = "game", "duel", "edge"  # сценарии: бедварс на карте и упражнения
+SCENARIO_NAMES = {GAME: "игра", DUEL: "дуэли", EDGE: "ходьба по краю"}
 # Цвета команд (bedwars_maps.TEAM_COLORS) -> цвета /team сервера.
 TEAM_COLOR = {"red": "red", "blue": "blue", "lime": "green", "yellow": "yellow", "cyan": "aqua", "white": "white",
-              "pink": "light_purple", "gray": "gray"}  # игра не кончилась за game_seconds — ничья, новая игра (обрыв, не конец эпизода)
+              "pink": "light_purple", "gray": "gray"}
+DUEL_COLORS = ("red", "blue")
 
 MAPS_DIR = Path(__file__).resolve().parent.parent / "data" / "bedwars" / "maps"
 READY_DISTANCE = 1.5   # бот ближе стольки к своей точке появления — телепорт дошёл
 RESEND_SECONDS = 2.0   # телепорт не дошёл за столько — ещё раз
-KILL_CREDIT_SECONDS = 10.0
-BED_CHECK_DELAY = 3.0
-JOIN_SECONDS = 2.0          # первая игра — через столько после первого бота (ждём остальных)       # секунд с начала игры, пока кровати не проверяются  # убийство засчитывается тому, кто ударил последним, не раньше стольких секунд
+KILL_CREDIT_SECONDS = 10.0  # убийство засчитывается тому, кто ударил последним не раньше стольких секунд
+BED_CHECK_DELAY = 3.0       # секунд с начала игры, пока кровати не проверяются
+JOIN_SECONDS = 2.0          # первая игра — через столько после первого бота (ждём остальных)
+DUEL_PAUSE = 1.0            # дуэль кончилась — реванш через столько
 
 
 def clock() -> float:
@@ -95,7 +121,22 @@ class BedwarsGame:
         self.wool_price = cfg.get("wool_price", 4)
         self.wool_amount = cfg.get("wool_amount", 16)
         self.shop_radius = cfg.get("shop_radius", 2.5)
-        self.world = config["bot"].get("task_worlds", {}).get(BEDWARS)
+        # Упражнения вперемешку с играми: сценарий каждой новой "игры" — по
+        # весам (0 — никогда; по умолчанию — только игры на картах).
+        self.scenarios = {name: weight for name, weight in cfg.get("scenarios", {GAME: 1.0}).items()
+                          if name in SCENARIO_NAMES and weight > 0} or {GAME: 1.0}
+        self.drill_seconds = cfg.get("drill_seconds", 120.0)
+        self.duel_seconds = cfg.get("duel_seconds", 30.0)
+        self.edge_seconds = cfg.get("edge_seconds", 40.0)
+        self.drill_respawn_seconds = cfg.get("drill_respawn_seconds", 1.0)
+        self.scenario = GAME
+        worlds = config["bot"].get("task_worlds", {})
+        self.world = worlds.get(BEDWARS)
+        self.drill_world = worlds.get("drills")
+        if self.world is not None and self.drill_world is None and set(self.scenarios) - {GAME}:
+            # Без своего мира дорожки строились бы в мире карт (или в обычном).
+            print("[bedwars] Упражнения выключены: нет мира упражнений (config.json bot.task_worlds.drills).")
+            self.scenarios = {GAME: 1.0}
         self.map: dict | None = None      # описание карты (json)
         # Команды: color, bed, spawn, bed_alive, members, done (матч кончился);
         # соперник команды i — команда i ^ 1 (матчи — пары 0-1, 2-3...).
@@ -109,7 +150,7 @@ class BedwarsGame:
         self.team_names = [f"bw_{color}" for color in TEAM_COLOR]
         self.events: dict[int, list[str]] = {}
         self.commands: list[str] = []
-        self.stats = {"games": 0, "decided": 0, "beds": 0, "kills": 0, "time_up": 0}
+        self.stats = {"games": 0, "decided": 0, "beds": 0, "kills": 0, "time_up": 0, "duels": 0, "goals": 0}
 
     # --- начало и конец игры ---------------------------------------------------
 
@@ -122,9 +163,24 @@ class BedwarsGame:
         return self.started_at is None and now >= max(self.next_game_at, self.first_seen + JOIN_SECONDS)
 
     def new_game(self, session_ids: list[int], name_of, now: float | None = None) -> None:
-        """Новая игра на случайной карте: два соседних острова, игроки — по
-        очереди в команды (перемешаны). Команды сервера — в self.commands."""
+        """Новая "игра": сценарий по весам scenarios — бедварс на карте или
+        упражнение. Команды сервера — в self.commands."""
         now = time.time() if now is None else now
+        names = list(self.scenarios)
+        self.scenario = self.rng.choices(names, [self.scenarios[name] for name in names])[0]
+        if self.scenario == GAME:
+            self._new_map_game(session_ids, name_of)
+        else:
+            self._new_drill(session_ids, name_of, now)
+        self.started_at = now
+        self.stats["games"] += 1
+        self._setup_server_teams()
+        for session_id in self.players:
+            self._spawn(session_id, now, kit=True)
+
+    def _new_map_game(self, session_ids: list[int], name_of) -> None:
+        """Бедварс на случайной карте: пары соседних островов, игроки — по
+        очереди в команды (перемешаны)."""
         name = self.rng.choice(self.maps)
         self.map = json.loads((MAPS_DIR / f"{name}.json").read_text(encoding="utf-8"))
         teams = self.map["teams"]
@@ -144,8 +200,8 @@ class BedwarsGame:
             if len(chosen) < wanted and first not in used and second not in used:
                 chosen.append((first, second))
                 used.update((first, second))
-        self.teams = [{"color": teams[i]["color"], "bed": teams[i]["bed"], "spawn": teams[i]["spawn"],
-                       "bed_alive": True, "members": [], "done": False}
+        self.teams = [{"color": teams[i]["color"], "name": f"bw_{teams[i]['color']}", "bed": teams[i]["bed"],
+                       "spawn": teams[i]["spawn"], "yaw": None, "bed_alive": True, "members": [], "done": False}
                       for pair in chosen for i in pair]
         ids = list(session_ids)
         self.rng.shuffle(ids)
@@ -163,22 +219,82 @@ class BedwarsGame:
             # (defend_chance): иначе кровати почти не ломаются.
             if len(team["members"]) >= 2 and self.rng.random() < self.defend_chance:
                 self.players[team["members"][0]]["role"] = DEFEND
-        self.started_at = now
-        self.stats["games"] += 1
+        # Вечно загруженные чанки (прошлые forceload — например, перевод карт,
+        # bedwars_maps.py --convert) переживают смену карты, и каждая загрузка
+        # мира заново их грузит — сервер подвисал. Карте они не нужны.
+        self.commands.append(self._in_world("forceload remove all"))
         self.commands.append(f"mcbot bedwars {name}")
-        # Команды сервера (/team): ник цветом своей команды, по своим не бьёшь —
-        # и людям видно, кто за кого (автор: "рассыпались по командам").
+        # Чанки кроватей — загружены всю игру: иначе проверка "цела ли кровать"
+        # (RCON: execute if block) в незагруженном чанке не знает ответа.
+        for team in self.teams:
+            for x, _, z in (team["bed"]["head"], team["bed"]["foot"]):
+                self.commands.append(self._in_world(f"forceload add {x} {z}"))
+
+    def _new_drill(self, session_ids: list[int], name_of, now: float) -> None:
+        """Упражнение (py/bedwars_drills.py) в мире упражнений: у каждой пары
+        (дуэль) или бота (край) — своя дорожка. Команда в дуэли — один игрок
+        (нечётный — вторым в последнюю команду: двое на одного), у тропы — один бот."""
+        ids = list(session_ids)
+        self.rng.shuffle(ids)
+        lanes = max(1, len(ids) // 2) if self.scenario == DUEL else len(ids)
+        self.map = {"name": SCENARIO_NAMES[self.scenario], "void_y": drill_void_y()}
+        self.commands.append(drill_command(lanes))  # участок дорожек — загружен (fill — только в загруженных чанках)
+        self.teams = []
+        for lane in range(lanes):
+            if self.scenario == DUEL:
+                layout = DuelLayout(lane, self.rng)
+                for side, color in enumerate(DUEL_COLORS):
+                    self.teams.append(self._drill_team(color, f"bw_{color}{lane}", lane, layout, layout.spawns[side], now))
+            else:
+                layout = EdgeLayout(lane, self.rng)
+                self.teams.append(self._drill_team("white", None, lane, layout, layout.start(), now))
+            self._build_lane(lane, layout)
+        self.players = {}
+        for index, session_id in enumerate(ids):
+            # Команд — по игроку (дуэль: две на пару); нечётный в дуэлях — вторым
+            # в последнюю команду (двое на одного).
+            team = min(index, len(self.teams) - 1)
+            self.teams[team]["members"].append(session_id)
+            self.players[session_id] = {"team": team, "role": ATTACK, "name": name_of(session_id), "entity_id": None,
+                                        "pos": None, "dead": False, "out": False, "ready": False, "sent": 0.0,
+                                        "states": 0, "hit_by": None, "hit_at": 0.0}
+
+    @staticmethod
+    def _drill_team(color: str, name: str | None, lane: int, layout, spawn: tuple, now: float) -> dict:
+        """Команда упражнения: без кровати (выбыл — значит выбыл), своя
+        дорожка и раскладка; spawn — (x, y, z, угол сервера) из раскладки."""
+        x, y, z, yaw = spawn
+        return {"color": color, "name": name, "bed": None, "spawn": [math.floor(x), y, math.floor(z)], "yaw": yaw,
+                "bed_alive": False, "members": [], "done": False, "lane": lane, "layout": layout,
+                "round_at": now, "rematch_at": None}
+
+    def _build_lane(self, lane: int, layout) -> None:
+        """Дорожка заново: всё прочь (постройки и обломки прошлого раунда),
+        площадка раскладки — на место."""
+        for fill in [clear_fill(lane)] + layout.fills():
+            self.commands.append(fill_command(fill, self._scenario_world()))
+
+    def _setup_server_teams(self) -> None:
+        """Команды сервера (/team): ник цветом своей команды, по своим не бьёшь —
+        и людям видно, кто за кого (автор: "рассыпались по командам")."""
         for name in self.team_names:  # команды прошлой игры (удалять несуществующие — шум ошибок в логе)
             self.commands.append(f"team remove {name}")
-        self.team_names = [f"bw_{team['color']}" for team in self.teams]
-        for team in self.teams:
-            color = team["color"]
-            self.commands += [f"team add bw_{color}", f"team modify bw_{color} color {TEAM_COLOR[color]}",
-                              f"team modify bw_{color} friendlyFire false"]
+        teams = [team for team in self.teams if team["name"] is not None]
+        self.team_names = [team["name"] for team in teams]
+        for team in teams:
+            name = team["name"]
+            self.commands += [f"team add {name}", f"team modify {name} color {TEAM_COLOR[team['color']]}",
+                              f"team modify {name} friendlyFire false"]
             # По одному: /team join в новых версиях берёт одно имя (или селектор).
-            self.commands += [f"team join bw_{color} {self.players[sid]['name']}" for sid in team["members"]]
-        for session_id in ids:
-            self._spawn(session_id, now, kit=True)
+            self.commands += [f"team join {name} {self.players[sid]['name']}" for sid in team["members"]]
+
+    def _scenario_world(self) -> str | None:
+        """Мир нынешнего сценария: карты — мир бедварса, упражнения — свой."""
+        return self.world if self.scenario == GAME else self.drill_world
+
+    def _in_world(self, command: str) -> str:
+        world = self._scenario_world()
+        return f"execute in minecraft:{world} run {command}" if world else command
 
     def _spawn(self, session_id: int, now: float, kit: bool) -> None:
         """На свою точку появления, лицом к центру карты; набор — заново (меч)."""
@@ -187,8 +303,9 @@ class BedwarsGame:
         x, y, z = team["spawn"]
         # Углы сервера: взгляд (-sin yaw, 0, cos yaw), yaw 0 — на юг (+z). Кратно
         # 10°: голова поворачивает шагами по 10°, и с другого угла ровно по оси
-        # моста не встать (учитель мостом дёргался между ±5°).
-        yaw = 10 * round(math.degrees(math.atan2(x, -z)) / 10)
+        # моста не встать (учитель мостом дёргался между ±5°). На карте — лицом
+        # к её середине, в упражнениях — как задала раскладка.
+        yaw = team["yaw"] if team.get("yaw") is not None else 10 * round(math.degrees(math.atan2(x, -z)) / 10)
         name = player["name"]
         commands = []
         if kit:
@@ -197,39 +314,74 @@ class BedwarsGame:
             commands += [f"gamemode survival {name}", f"clear {name}", f"give {name} minecraft:wooden_sword 1"]
             if self.start_blocks > 0:
                 commands.append(f"give {name} minecraft:{team['color']}_wool {self.start_blocks}")
-        teleport = f"tp {name} {x + 0.5} {y} {z + 0.5} {yaw:.0f} 0"
-        commands.append(f"execute in minecraft:{self.world} run {teleport}" if self.world else teleport)
+        commands.append(self._in_world(f"tp {name} {x + 0.5} {y} {z + 0.5} {yaw:.0f} 0"))
         self.commands += commands
-        player.update(ready=False, sent=now, states=0)
+        player.update(ready=False, sent=now, states=0, fell=False)
 
-    def end_match(self, team_index: int, winner: int | None) -> None:
+    def end_match(self, team_index: int, winner: int | None, now: float | None = None) -> None:
         """Конец матча команды team_index и её соперника: победителям — WON,
         проигравшим — LOST (кто ещё жив — тоже: игра для них кончилась),
-        ничья — TIME_UP. Игроки кончившегося матча ждут конца игры (waiting)."""
+        ничья — TIME_UP. Игроки кончившегося матча ждут конца игры (waiting);
+        в дуэлях — реванша через DUEL_PAUSE."""
+        now = time.time() if now is None else now
         match = (team_index & ~1, team_index | 1)
+        won, lost = (DUEL_WON, DUEL_LOST) if self.scenario == DUEL else (WON, LOST)
         for index in match:
             team = self.teams[index]
             team["done"] = True
+            team["rematch_at"] = now + DUEL_PAUSE
             for session_id in team["members"]:
                 player = self.players[session_id]
                 if winner is None:
                     self._event(session_id, TIME_UP)
                 elif not player["out"] or index == winner:
-                    self._event(session_id, WON if index == winner else LOST)
+                    self._event(session_id, won if index == winner else lost)
                 if not player["out"]:
                     # До новой игры — зритель: иначе победители стояли столбом,
                     # пока доигрывают другие матчи (автор: "просто стоят и тупят").
                     self.commands.append(f"gamemode spectator {player['name']}")
         self.stats["time_up" if winner is None else "decided"] += 1
+        if self.scenario == DUEL:
+            self.stats["duels"] += 1
 
     def end_game(self, now: float | None = None) -> None:
-        """Конец игры: матчи, что ещё идут, — ничья; через паузу — новая игра."""
+        """Конец игры: матчи, что ещё идут, — ничья (тропы — тоже); через
+        паузу — новая игра."""
         now = time.time() if now is None else now
-        for index in range(0, len(self.teams), 2):
-            if not self.teams[index]["done"]:
-                self.end_match(index, None)
+        if self.scenario == EDGE:
+            for team in self.teams:
+                for session_id in team["members"]:
+                    self._event(session_id, TIME_UP)
+                    self.commands.append(f"gamemode spectator {self.players[session_id]['name']}")
+        else:
+            for index in range(0, len(self.teams), 2):
+                if not self.teams[index]["done"]:
+                    self.end_match(index, None, now)
         self.started_at = None
         self.next_game_at = now + self.pause
+
+    def _rematch(self, team_index: int, now: float) -> None:
+        """Дуэль: реванш той же пары на новой площадке своей дорожки."""
+        first, second = self.teams[team_index & ~1], self.teams[team_index | 1]
+        layout = DuelLayout(first["lane"], self.rng)
+        self._build_lane(first["lane"], layout)
+        for team, spawn in ((first, layout.spawns[0]), (second, layout.spawns[1])):
+            x, y, z, yaw = spawn
+            team.update(spawn=[math.floor(x), y, math.floor(z)], yaw=yaw, layout=layout, done=False,
+                        round_at=now, rematch_at=None)
+            for session_id in team["members"]:
+                self.players[session_id].update(out=False, respawn_at=None, hit_by=None)
+                self._spawn(session_id, now, kit=True)
+
+    def _new_edge_attempt(self, team_index: int, now: float, kit: bool = False) -> None:
+        """Ходьба по краю: новая тропа на дорожке бота, бот — на её старт."""
+        team = self.teams[team_index]
+        layout = EdgeLayout(team["lane"], self.rng)
+        self._build_lane(team["lane"], layout)
+        x, y, z, yaw = layout.start()
+        team.update(spawn=[math.floor(x), y, math.floor(z)], yaw=yaw, layout=layout, round_at=now)
+        for session_id in team["members"]:
+            self._spawn(session_id, now, kit=kit)
 
     # --- что видно от ботов ----------------------------------------------------
 
@@ -258,7 +410,10 @@ class BedwarsGame:
             if now < player["respawn_at"]:
                 return  # ждёт возрождения (зритель)
             player["respawn_at"] = None
-            self._spawn(session_id, now, kit=True)
+            if self.scenario == EDGE:
+                self._new_edge_attempt(player["team"], now, kit=True)  # упал — новая тропа
+            else:
+                self._spawn(session_id, now, kit=True)
             return
         player["pos"] = (me["x"], me["y"], me["z"])
         if not player["ready"]:
@@ -270,7 +425,15 @@ class BedwarsGame:
             elif now - player["sent"] > RESEND_SECONDS:
                 self._spawn(session_id, now, kit=False)  # телепорт не дошёл — ещё раз
             return
+        if self.scenario == EDGE and self.teams[player["team"]]["layout"].on_goal(*player["pos"]):
+            self._event(session_id, GOAL)  # дошёл — и сразу новая тропа
+            self.stats["goals"] += 1
+            self._new_edge_attempt(player["team"], now)
+            return
         if me["y"] < self.map["void_y"]:
+            if not player.get("fell"):
+                player["fell"] = True
+                self._event(session_id, FELL)
             self.commands.append(f"kill {player['name']}")  # в пустоту — умер, не дожидаясь дна мира
 
     def _died(self, session_id: int, now: float) -> None:
@@ -280,6 +443,11 @@ class BedwarsGame:
         if killer is not None:
             self._event(killer, KILL)
             self.stats["kills"] += 1
+        if self.scenario == EDGE:
+            # Ходьба по краю: упал — через drill_respawn_seconds на новую тропу.
+            player["respawn_at"] = now + self.drill_respawn_seconds
+            self.commands.append(f"gamemode spectator {player['name']}")
+            return
         if self.teams[player["team"]]["bed_alive"]:
             # Возрождение — через respawn_seconds (как в бедварсе: до того
             # зритель), на свой остров и снова с набором (вещи при смерти
@@ -296,7 +464,7 @@ class BedwarsGame:
         """Генераторы: у каждой команды куча железа и золота у точки появления
         растёт (iron_seconds, gold_seconds; не больше iron_cap, gold_cap)."""
         now = time.time() if now is None else now
-        if self.started_at is None:
+        if self.started_at is None or self.scenario != GAME:
             return
         for team in self.teams:
             last = team.setdefault("economy_at", now)
@@ -313,7 +481,8 @@ class BedwarsGame:
     def at_shop(self, session_id: int) -> bool:
         """Стоит у своей точки появления — там генератор и магазин."""
         player = self.players.get(session_id)
-        if player is None or player["pos"] is None or player["dead"] or player["out"] or not player["ready"]:
+        if (self.scenario != GAME or player is None or player["pos"] is None or player["dead"] or player["out"]
+                or not player["ready"]):
             return False
         x, y, z = self.teams[player["team"]]["spawn"]
         return math.dist(player["pos"], (x + 0.5, y, z + 0.5)) <= self.shop_radius
@@ -381,11 +550,31 @@ class BedwarsGame:
         now = time.time() if now is None else now
         if self.started_at is None:
             return
+        if self.scenario == EDGE:
+            for index, team in enumerate(self.teams):
+                ready = any(self.players[sid]["ready"] for sid in team["members"])
+                if ready and now - team["round_at"] > self.edge_seconds:
+                    for session_id in team["members"]:
+                        self._event(session_id, TIME_UP)  # не дошёл за edge_seconds — новая тропа (обрыв)
+                    self._new_edge_attempt(index, now)
+            if now - self.started_at > self.drill_seconds:
+                self.end_game(now)
+            return
         alive = [any(not self.players[sid]["out"] for sid in team["members"]) for team in self.teams]
         for index in range(0, len(self.teams), 2):
-            if not self.teams[index]["done"] and not (alive[index] and alive[index + 1]):
-                self.end_match(index, index if alive[index] else index + 1 if alive[index + 1] else None)
-        if all(team["done"] for team in self.teams) or now - self.started_at > self.game_seconds:
+            team = self.teams[index]
+            if team["done"]:
+                if self.scenario == DUEL and now >= team["rematch_at"]:
+                    self._rematch(index, now)
+                continue
+            if not (alive[index] and alive[index + 1]):
+                self.end_match(index, index if alive[index] else index + 1 if alive[index + 1] else None, now)
+            elif self.scenario == DUEL and now - team["round_at"] > self.duel_seconds:
+                self.end_match(index, None, now)  # дуэль затянулась — ничья и реванш
+        if self.scenario == DUEL:
+            if now - self.started_at > self.drill_seconds:
+                self.end_game(now)
+        elif all(team["done"] for team in self.teams) or now - self.started_at > self.game_seconds:
             self.end_game(now)
 
     # --- что сказать ботам -------------------------------------------------------
@@ -399,7 +588,7 @@ class BedwarsGame:
 
     def enemy_ids(self, session_id: int) -> list[int]:
         player = self.players.get(session_id)
-        if player is None:
+        if player is None or self.scenario == EDGE:
             return []
         return [p["entity_id"] for p in self.players.values()
                 if p["team"] == player["team"] ^ 1 and not p["out"] and p["entity_id"] is not None]
@@ -412,6 +601,9 @@ class BedwarsGame:
         player = self.players.get(session_id)
         if player is None or player["pos"] is None:
             return None
+        if self.scenario == EDGE:
+            x, y, z = self.teams[player["team"]]["layout"].goal()  # ходьба по краю: конец тропы
+            return {"x": x, "y": y, "z": z}
         enemies = [p for p in self.players.values()
                    if p["team"] == player["team"] ^ 1 and not p["dead"] and not p["out"] and p["pos"] is not None
                    and p["entity_id"] is not None]
@@ -454,7 +646,7 @@ class BedwarsGame:
         """Чужая кровать, пока цела, — учителю: мост строить к ней, даже когда
         цель на время — враг."""
         player = self.players.get(session_id)
-        if player is None:
+        if player is None or self.scenario != GAME:
             return None
         team = self.teams[player["team"] ^ 1]
         return team["bed"] if team["bed_alive"] else None
@@ -473,6 +665,9 @@ class BedwarsGame:
     def describe(self) -> str:
         if self.map is None:
             return "бедварс: игры ещё не было"
+        if self.scenario != GAME:
+            layouts = {team["lane"]: team["layout"].describe() for team in self.teams}
+            return f"бедварс, упражнение — {self.map['name']}: " + "; ".join(layouts.values())
         teams = [f"{t['color']} ({len(t['members'])}, кровать {'цела' if t['bed_alive'] else 'сломана'})"
                  for t in self.teams]
         matches = "; ".join(f"{teams[i]} против {teams[i + 1]}" for i in range(0, len(teams), 2))

@@ -16,6 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
+from bedwars_drills import bounds as drill_bounds
 from protocol import ACTION_ROTATION  # noqa: F401  (шаги поворотов — те же, что у Node)
 from state_encoder import PackedCells
 
@@ -46,6 +47,7 @@ WEAPON_BACK_TICKS = 10                    # руки свободны полсе
 KIT_EMPTY_CHANCE = 0.2                    # случайный набор: столько охотников без блоков вовсе
 KIT_NO_SWORD_CHANCE = 0.15                # ...и столько — без меча (кулаки)
 KNOCKBACK = 0.4
+SPRINT_KNOCKBACK = 0.5                    # удар на бегу: ещё столько отбрасывания (уровень 1 x 0.5)
 REGEN_SECONDS = 1.0                       # мирная сложность: +1 здоровья в секунду
 DIG_REACH = 4.5                           # js/actions.js: копать — только вблизи
 PLACE_REACH = 4.5
@@ -65,6 +67,7 @@ MOVES = {
     "jump": {"jump": True},
     "sneak_back": {"back": True, "sneak": True},  # мост: задом крадучись, с края не сойдёт
     "sneak": {"sneak": True},
+    "sneak_forward": {"forward": True, "sneak": True},  # к краю — с него крадущийся не сорвётся
 }
 
 
@@ -223,6 +226,7 @@ class SimArena:
         # поставленные блоки (placed) и кровати; сломанные кровати — судье.
         self.bedwars = bedwars
         self.map_worlds: dict[str, ArenaWorld] = {}
+        self.drill_world: ArenaWorld | None = None  # упражнения бедварса (/mcbot drill)
         self.placed: set[tuple] = set()
         if bedwars:
             self.world = self._map_world(sorted(p.stem for p in BEDWARS_MAPS.glob("*.npz"))[0])
@@ -753,6 +757,19 @@ class SimArena:
             self.map_worlds[name] = ArenaWorld.for_bedwars_map(name)
         return self.map_worlds[name]
 
+    def load_drills(self) -> None:
+        """/mcbot drill: упражнения бедварса (py/bedwars_drills.py) — свой
+        пустой мир на дорожки всех ботов (у тропы края — по дорожке на бота),
+        как мир упражнений на сервере; дорожки строит судья командами fill."""
+        if self.drill_world is None:
+            self.drill_world = ArenaWorld.empty(drill_bounds(len(self.agents)), "drills")
+        self.world = self.drill_world
+        self.placed.clear()
+        for agent in self.agents.values():
+            agent.dig = None
+            agent.place_support = None
+            agent.route = RoutePlanner(self.world, self.config["route"])
+
     def load_map(self, name: str) -> None:
         """/mcbot bedwars <карта>: карта заново (как плагин: мир перезагружается
         из её регионов) — всё построенное и сломанное пропадает."""
@@ -808,10 +825,22 @@ class SimArena:
         attacker.damage_dealt.append({"id": victim.entity_id, "charge": js_round(charge), "crit": crit})
         vel = victim.body.vel
         flat = math.hypot(dx, dz) or 1.0
+        on_ground = victim.body.on_ground
         vel[0] = vel[0] / 2 + KNOCKBACK * dx / flat
         vel[2] = vel[2] / 2 + KNOCKBACK * dz / flat
-        if victim.body.on_ground:
+        if on_ground:
             vel[1] = min(0.4, vel[1] / 2 + KNOCKBACK)
+        if body.controls.get("sprint") and charge > 0.9:
+            # Удар на бегу в полную силу — ещё отбрасывание по взгляду бьющего,
+            # а он сам теряет скорость (Player.attack: knockback + 1, x0.6) —
+            # как в игре: без этого драки на мостах в симуляции шли иначе.
+            fx, fz = -math.sin(body.yaw), -math.cos(body.yaw)
+            vel[0] = vel[0] / 2 + SPRINT_KNOCKBACK * fx
+            vel[2] = vel[2] / 2 + SPRINT_KNOCKBACK * fz
+            if on_ground:
+                vel[1] = min(0.4, vel[1] / 2 + SPRINT_KNOCKBACK)
+            body.vel[0] *= 0.6
+            body.vel[2] *= 0.6
         victim.body.on_ground = False
         for listener in self.agents.values():  # звук удара и урона
             if not listener.absent:
@@ -893,11 +922,11 @@ class SimArena:
             return
         if words[0] == "fill" and len(words) == 8:
             x1, y1, z1, x2, y2, z2 = map(int, words[1:7])
-            name = words[7].split(":")[-1]
-            for x in range(min(x1, x2), max(x1, x2) + 1):
-                for y in range(min(y1, y2), max(y1, y2) + 1):
-                    for z in range(min(z1, z2), max(z1, z2) + 1):
-                        self.world.set_block(x, y, z, name)
+            self.world.fill(x1, y1, z1, x2, y2, z2, words[7].split(":")[-1])
+            for agent in self.agents.values():
+                if agent.dig is not None and all(min(a, b) <= c <= max(a, b)
+                                                 for c, a, b in zip(agent.dig, (x1, y1, z1), (x2, y2, z2))):
+                    agent.dig = None  # копал клетку, которую судья только что перестроил
             return
         if words[0] == "give" and len(words) >= 3:
             item = words[2].split(":")[-1].split("[")[0]
@@ -924,6 +953,9 @@ class SimArena:
             return
         if words[0] == "mcbot" and len(words) >= 3 and words[1] == "bedwars":
             self.load_map(" ".join(words[2:]))
+            return
+        if words[0] == "mcbot" and len(words) >= 2 and words[1] == "drill":
+            self.load_drills()
             return
         if words[0] == "gamemode" and len(words) == 3:
             # Бедварс: выбыл — зритель (вне игры), новая игра — снова в игре.

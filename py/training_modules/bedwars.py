@@ -14,6 +14,9 @@ py/bedwars_game.py).
   - win_reward / lose_penalty — конец игры (исход от судьи — конец эпизода);
   - death_penalty — смерть (в бою или в пустоте);
   - buy_reward — купил шерсть (блоки — только за железо с генератора).
+Упражнения (судья сам выбирает сценарий, py/bedwars_drills.py): дуэль — те
+же удары и убийство плюс duel_win_reward за победу (конец эпизода); ходьба
+по краю — прогресс по маршруту до конца тропы плюс goal_reward, когда дошёл.
 Руки — бить (и копать: кровать, чужие блоки на пути), столб под себя, блок
 перед собой, купить (buy — у своей точки появления, проводит судья); ноги и
 голова — все действия (мост крадучись — sneak_back).
@@ -23,6 +26,9 @@ from __future__ import annotations
 
 from .hunt import HuntModule
 from .targets import times
+
+# Исходы судьи — конец эпизода: их считает ai_loop (_end_episode), не мы.
+TERMINAL_EVENTS = ("won", "lost", "duel_won", "duel_lost", "goal")
 
 
 class BedwarsModule(HuntModule):
@@ -46,8 +52,11 @@ class BedwarsModule(HuntModule):
         self.own_bed: dict | None = None  # от судьи: своя кровать {"head", "foot"}
         self.enemy_bed: dict | None = None  # от судьи: чужая кровать, пока цела
         self.own_spawn: list | None = None  # от судьи: своя точка появления (генератор, магазин)
-        self.buy_reward = config["modules"].get("bedwars", {}).get("buy_reward", 1.0)
+        self.buy_reward = cfg.get("buy_reward", 1.0)
+        self.duel_win_reward = cfg.get("duel_win_reward", 30.0)
+        self.goal_reward = cfg.get("goal_reward", 30.0)
         self.teacher_cover: dict = {}     # учитель-защитник: какие клетки вокруг кровати уже закрыты
+        self.scenario = "game"            # от судьи: "game" — бедварс на карте, "duel"/"edge" — упражнения
 
     def reset(self, state: dict) -> None:
         super().reset(state)
@@ -71,11 +80,11 @@ class BedwarsModule(HuntModule):
                 value += damage * (1.5 if hit.get("crit") else 1.0)
         events, self.game_events = self.game_events, []
         for event in events:
-            if event not in ("won", "lost"):  # исходы игры считает ai_loop (_end_episode)
+            if event not in TERMINAL_EVENTS:
                 self.count(event)
             value += {"bed": self.bed_reward, "kill": self.kill_reward, "bed_lost": self.bed_lost_penalty,
-                      "bought": self.buy_reward,
-                      "won": self.win_reward, "lost": self.lose_penalty}.get(event, 0.0)
+                      "bought": self.buy_reward, "won": self.win_reward, "lost": self.lose_penalty,
+                      "duel_won": self.duel_win_reward, "goal": self.goal_reward}.get(event, 0.0)
         rewards = self.team(value)
         if not curr_state.get("dead"):
             rewards["head"] += base["head"] - base["legs"]  # штраф за наклон взгляда — как у chase
@@ -93,4 +102,10 @@ class BedwarsModule(HuntModule):
             text += f"; игр: победа {events.get('won', 0)}, поражение {events.get('lost', 0)}"
         if events.get("time_up"):
             text += f", ничья (время) {events['time_up']}"
+        if events.get("duel_won"):
+            text += f"; дуэлей выиграл {events['duel_won']}"
+        if events.get("goal"):
+            text += f"; дошёл по краю {times(events['goal'])}"
+        if events.get("fell"):
+            text += f"; падал в пустоту {times(events['fell'])}"
         return text, rate

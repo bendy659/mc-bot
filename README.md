@@ -266,7 +266,7 @@ node js/bot.js
 
 | Канал   | Действия | Что это |
 |---------|----------|---------|
-| `legs`  | `idle`, `walk_forward`, `sprint_forward`, `walk_back`, `strafe_left`, `strafe_right`, `jump_forward`, `turn_left`, `turn_right`, `jump`, `sneak_back`, `sneak`, `turn_around` | перемещение и поворот корпуса (30°; `turn_around` — сразу на 180°) |
+| `legs`  | `idle`, `walk_forward`, `sprint_forward`, `walk_back`, `strafe_left`, `strafe_right`, `jump_forward`, `turn_left`, `turn_right`, `jump`, `sneak_back`, `sneak`, `turn_around`, `sneak_forward` | перемещение и поворот корпуса (30°; `turn_around` — сразу на 180°) |
 | `head`  | `head_idle`, `look_up`, `look_down`, `look_left`, `look_right` | только взгляд: наклон и доворот по 10° |
 | `hands` | `hands_idle`, `attack_center`, `place_below`, `place_front`, `use_item`, `equip_armor`, `drop_item` | взаимодействие с миром и инвентарём |
 
@@ -560,6 +560,24 @@ bedwars`. Учить в симуляции: `python py/train_tag_sim.py --game b
 мозг не выучится); симуляция на картах
 совпадает с игрой (формы блоков, ступени, лёд, лестницы — сверка
 `python py/sim/check_bedwars_parity.py --all`).
+
+**Упражнения бедварса** (`py/bedwars_drills.py`; автор: "сначала нужно
+оттачивать механики"). Судья вперемешку с играми даёт упражнения — веса
+`modules.bedwars.scenarios` (`game`/`duel`/`edge`, в config.json 1/2/2),
+упражнение длится `drill_seconds`:
+  - **дуэли** 1 на 1 над пустотой — мост в 1–3 блока или островок, у обоих
+    деревянный меч; упал или убит — проиграл (`duel_win_reward` победителю),
+    через секунду реванш на новой площадке, дольше `duel_seconds` — ничья;
+  - **ходьба по краю** — тропа над пустотой (повороты, уступы вверх и вниз,
+    ширина 1–3) от пятачка старта до пятачка цели: дошёл — `goal_reward` и
+    новая тропа, упал — смерть и новая тропа, дольше `edge_seconds` — новая.
+Упражнения идут в своём мире `bot.task_worlds.drills` (плагин создаёт его
+пустым и не перезагружает; `/mcbot drill x0 z0 x1 z1` — загрузить участок
+дорожек), дорожки строит судья командами fill. Учитель (`sim/teacher.py`):
+в дуэли бьёт только полным зарядом, разворачивается сразу (`turn_around`),
+пока заряд копится — отступает; на тропе идёт от клетки к клетке маршрута
+(`state.route.next`), у края и по тропе в блок — крадучись (`sneak_forward`:
+вживую ответ доходит с опозданием, а крадущийся с края не сорвётся).
 
 **Задачка `hunt` — «Останови меня»** (идея автора): боты догоняют цель и
 бьют, пока не остановят. `!task all hunt`, приготовься и напиши `!start`

@@ -60,7 +60,7 @@ from protocol import CHANNEL_NAMES, IDLE_ACTIONS
 from state_encoder import FrameStacker, encode_state, scalar_dim, unpack_vision, vision_channels
 from dqn import TaskBrain
 from demo_loader import action_indices, load_demos_into
-from bedwars_game import BEDWARS, LOST, WON, BedwarsGame, clock as bedwars_clock
+from bedwars_game import BEDWARS, TERMINAL_EVENTS as BEDWARS_OUTCOMES, BedwarsGame, clock as bedwars_clock
 from bridge_course import BridgeCourse, fill_command
 from hunt_game import HUNT, KILLED, HuntGame
 from tag_game import CHASE, FLEE, TERMINAL_OUTCOMES, TagGame
@@ -781,8 +781,9 @@ class AILoop:
                 if not self.server.is_bed(game.world, cells):
                     game.bed_broken(team_index, now)
         game.check_end(now)
+        session.module.scenario = game.scenario  # игра или упражнение (учителю)
         for event in game.take_events(session.id):
-            if event in (WON, LOST):
+            if event in BEDWARS_OUTCOMES:
                 session.module.game_events.append(event)
                 self._end_episode(session, state, event)
                 session.module.game_events.clear()  # переход уже закрыт (или его не было)

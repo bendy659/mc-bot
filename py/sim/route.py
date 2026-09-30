@@ -128,7 +128,9 @@ class RoutePlanner:
                     continue
                 diagonal = dx != 0 and dz != 0
                 nx, nz = x + dx, z + dz
-                if diagonal and not (self.clear(x + dx, y, z) and self.clear(x, y, z + dz)):
+                # По диагонали — только если по обеим боковым клеткам можно пройти
+                # (стена — цепляет угол; пустота — срезал угол над пропастью).
+                if diagonal and not (self.standable(x + dx, y, z) and self.standable(x, y, z + dz)):
                     continue
                 if self.standable(nx, y, nz):
                     out.append(((nx, y, nz), SQRT2 if diagonal else 1.0, SQRT2 if diagonal else 1.0))
@@ -220,11 +222,13 @@ class RoutePlanner:
                 best_distance, best_index = d, i
         self.index = best_index
         wx, wy, wz = self.path[min(self.index + self.lookahead, len(self.path) - 1)][0]
+        nx, ny, nz = self.path[min(self.index + 1, len(self.path) - 1)][0]  # следующая клетка (учителю)
         length = best_distance + self.remaining[self.index]
         if not self.complete:
             ex, ey, ez = self.path[-1][0]
             length += math.hypot(ex + 0.5 - target[0], ey - target[1], ez + 0.5 - target[2])
         return {"waypoint": {"x": wx + 0.5, "y": wy, "z": wz + 0.5},
+                "next": {"x": nx + 0.5, "y": ny, "z": nz + 0.5},
                 "length": math.floor(length * 100 + 0.5) / 100, "complete": self.complete}
 
     def replan(self, position, target) -> None:

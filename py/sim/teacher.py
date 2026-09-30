@@ -415,11 +415,135 @@ def _careful_steer(me: dict, target: dict, ground: list) -> tuple[str, str]:
     error = aim_errors(me, target)[0]
     legs, head = _steer(error)
     if ground[0] < EDGE_WALK or min(ground[1], ground[3]) < NARROW:
+        if legs in ("turn_left", "turn_right", "turn_around"):
+            return legs, head  # поворот ногами — и так на месте
         if abs(error) > EDGE_TURN:
             return "idle", ("look_left" if error > 0 else "look_right")
         if legs == "sprint_forward":
             legs = "walk_forward"
     return legs, head
+
+
+def _steer_target(state: dict, module, ground: list) -> dict:
+    """Куда вести: точка маршрута (на lookahead клеток вперёд), а на узком и
+    у края — следующая клетка маршрута: точка на повороте тропы лежит
+    наискосок, и к ней учитель шёл через пустоту (ходьба по краю, 2026-09-30)."""
+    route = state.get("route") or {}
+    if route.get("next") and (ground[0] < EDGE_WALK or min(ground[1], ground[3]) < NARROW):
+        return {**route["next"], "h": 0.0}
+    return module.observe(state)["target"]
+
+
+SAFE_AHEAD = 2.5          # у края: пола впереди больше — шагом, меньше — крадучись
+PATH_ALIGN = math.radians(15)  # на узком идти, только когда смотрит на следующую клетку точнее
+NARROW_WALK_ALIGN = math.radians(8)  # по тропе в блок шагом — только если смотрит ещё точнее
+
+
+def _path_steer(state: dict, module, ground: list) -> tuple[str, str]:
+    """Идти по маршруту. На просторе — как _careful_steer. На узком и у края —
+    от клетки к клетке маршрута (route.next): смотрит мимо следующей клетки —
+    сперва остановиться крадучись (с края не сорвётся) и развернуться стоя,
+    потом идти: шагом, пока пола впереди больше SAFE_AHEAD (по тропе в блок
+    шириной — ещё и только глядя точно вдоль неё), иначе — крадучись.
+    Вживую действие начинает действовать с опозданием до двух решений (в
+    облаке — 300 мс): решение "стоп" у угла тропы приходило, когда бот с
+    разгону уже проскочил край (2026-09-30), а крадущийся не сорвётся, даже
+    если опоздало. Уступ вверх и вниз — шагом: вверх запрыгнет автопрыжок
+    макроса, а крадучись со ступеньки вниз не сойти."""
+    me = state["self"]
+    step = (state.get("route") or {}).get("next")
+    if step is None or not (ground[0] < EDGE_WALK or min(ground[1], ground[3]) < NARROW):
+        return _careful_steer(me, module.observe(state)["target"], ground)
+    error = aim_errors(me, step)[0]
+    head = ("look_left" if error > 0 else "look_right") if abs(error) > FINE else "head_idle"
+    if abs(error) > PATH_ALIGN:
+        moving = abs(me.get("move_forward", 0.0)) + abs(me.get("move_right", 0.0)) > 0.05
+        if abs(error) > COARSE and not moving:
+            return _steer(error)  # стоит — повернуть ногами (и головой) на месте
+        return "sneak", head
+    if abs(step["y"] - me["y"]) > 0.5:
+        return "walk_forward", head
+    if ground[0] <= SAFE_AHEAD or (min(ground[1], ground[3]) < NARROW and abs(error) > NARROW_WALK_ALIGN):
+        return "sneak_forward", head
+    return "walk_forward", head
+
+
+# Куда шагнуть, чтобы вернуться на пол (чувство пола: впереди, справа, сзади, слева):
+# вперёд и назад — крадучись (не проскочить на другую сторону тропы, если
+# следующее решение опоздает), вбок крадучись действия нет.
+TOWARD_FLOOR = ("sneak_forward", "strafe_right", "sneak_back", "strafe_left")
+RECOVER_REACH = 1.0  # пол ближе стольки — к нему; дальше — уже падает, шагать некуда
+
+
+def _recover_floor(ground: list) -> str | None:
+    """Свесился с края (под серединой тела пустота — чувство пола со знаком
+    минус во все стороны) — шаг туда, где пол ближе. None — стоит на полу."""
+    if ground[0] >= 0:
+        return None
+    side = min(range(4), key=lambda i: abs(ground[i]))
+    return TOWARD_FLOOR[side] if abs(ground[side]) < RECOVER_REACH else None
+
+
+DUEL_BACK_OFF = 2.2  # дуэль: враг ближе, а удар не заряжен — отступить (крадучись, если сзади край)
+DUEL_HOLD = 3.3      # ...ближе стольки — ждать заряда на месте, лицом к нему
+
+
+def duel_actions(state: dict, module) -> dict:
+    """Дуэль (упражнение бедварса, py/bedwars_drills.py): цель от судьи —
+    враг. Сначала развернуться (за спиной — turn_around, сбоку — ноги и голова
+    разом), к нему — у края и на узком шагом; бить — только полным зарядом
+    (бьёт первым тот, кто подошёл заряженным; удар на бегу ещё и отбрасывает
+    дальше). Пока заряд копится, а враг рядом, — не лезть под удар: вплотную
+    отступить (сзади край — крадучись: с края крадущийся не сорвётся), чуть
+    дальше — ждать на месте. Свесился с края — сперва обратно на пол."""
+    me = state["self"]
+    goal = state.get("target")
+    if goal is None:
+        return {"legs": "idle", "head": _level(me, "head_idle"), "hands": "hands_idle"}
+    ground = state.get("ground") or [3.0, 3.0, 3.0, 3.0]
+    charged = _charged(state, full=True)
+    hands = "attack_center" if state.get("strike") and charged else "hands_idle"
+    recover = _recover_floor(ground)
+    if recover is not None:
+        return {"legs": recover, "head": _level(me, "head_idle"), "hands": hands}
+    error = aim_errors(me, goal)[0]
+    flat = math.hypot(goal["x"] - me["x"], goal["z"] - me["z"])
+    if abs(error) > COARSE:
+        legs, head = _steer(error)
+        return {"legs": legs, "head": _level(me, head), "hands": hands}
+    head = ("look_left" if error > 0 else "look_right") if abs(error) > FINE else "head_idle"
+    if not charged and flat < DUEL_BACK_OFF:
+        legs = "walk_back" if ground[2] > EDGE_WALK else "sneak_back"
+    elif not charged and flat < DUEL_HOLD:
+        legs = "idle" if ground[2] > 1.0 else "sneak"
+    else:
+        legs, head = _careful_steer(me, _steer_target(state, module, ground), ground)
+    return {"legs": legs, "head": _level(me, head), "hands": hands}
+
+
+def edge_actions(state: dict, module) -> dict:
+    """Ходьба по краю (упражнение бедварса): по маршруту к концу тропы, от
+    клетки к клетке (_path_steer: у края и по тропе в блок — крадучись,
+    повороты — стоя, уступы — шагом). Свесился — обратно на пол."""
+    me = state["self"]
+    if state.get("target") is None:
+        return {"legs": "idle", "head": _level(me, "head_idle"), "hands": "hands_idle"}
+    ground = state.get("ground") or [3.0, 3.0, 3.0, 3.0]
+    recover = _recover_floor(ground)
+    if recover is not None:
+        return {"legs": recover, "head": _level(me, "head_idle"), "hands": "hands_idle"}
+    legs, head = _path_steer(state, module, ground)
+    return {"legs": legs, "head": _level(me, head), "hands": "hands_idle"}
+
+
+def bedwars_teacher(state: dict, module) -> dict:
+    """Учитель бедварса: игра на карте или упражнение — что задал судья."""
+    scenario = getattr(module, "scenario", "game")
+    if scenario == "duel":
+        return duel_actions(state, module)
+    if scenario == "edge":
+        return edge_actions(state, module)
+    return bedwars_actions(state, module)
 
 
 COVER_GIVE_UP = 40   # защитник: столько решений не вышло закрыть клетку — дальше
@@ -553,7 +677,7 @@ def bedwars_actions(state: dict, module) -> dict:
             goal = state["target"]
         else:
             # Узкий мост, край: к врагу шагом, бегом слетал.
-            legs, head = _careful_steer(me, module.observe(state)["target"], ground)
+            legs, head = _careful_steer(me, _steer_target(state, module, ground), ground)
             return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
     eye = (me["x"], me["y"] + 1.62, me["z"])
     if math.dist(eye, (goal["x"], goal["y"], goal["z"])) <= BED_REACH:
@@ -577,10 +701,10 @@ def bedwars_actions(state: dict, module) -> dict:
         # проскакивал в пустоту по инерции). Дошёл (точка маршрута под ногами)
         # — мост, до полного маршрута. Раньше мост начинался, когда "впереди
         # мало пола", — у сложных островов это бывало не у края (упор в стену).
-        legs, head = _careful_steer(me, module.observe(state)["target"], ground)
+        legs, head = _path_steer(state, module, ground)
         return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
     if route.get("complete"):
-        legs, head = _careful_steer(me, module.observe(state)["target"], ground)
+        legs, head = _path_steer(state, module, ground)
         return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
     module.teacher_bridging = True
     actions = bridge_actions(state)
@@ -607,7 +731,7 @@ def teacher_actions(session, state: dict, config: dict, loop=None) -> dict | Non
     if session.task_name == "bridge":
         return bridge_actions(state)
     if session.task_name == "bedwars":
-        return bedwars_actions(state, session.module)
+        return bedwars_teacher(state, session.module)
     if session.task_name == "hunt":
         return hunt_actions(state, session.module, session.id, hunt_peers(loop, session) if loop else [])
     if session.task_name == "flee":

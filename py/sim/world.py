@@ -243,6 +243,35 @@ class ArenaWorld:
         world.snapshot()
         return world
 
+    @classmethod
+    def empty(cls, box: tuple, name: str) -> "ArenaWorld":
+        """Пустой мир в коробке box = (x0, y0, z0, x1, y1, z1): упражнения
+        бедварса (py/bedwars_drills.py) — площадки строит судья командами fill,
+        как в мире задачки на сервере без карты (/mcbot bedwars void)."""
+        world = cls.__new__(cls)
+        world.arena = None
+        x0, y0, z0, x1, y1, z1 = box
+        world.origin = np.array([x0, y0, z0], dtype=np.int64)
+        world.size = np.array([x1 - x0 + 1, y1 - y0 + 1, z1 - z0 + 1], dtype=np.int64)
+        world.blocks = np.zeros(tuple(world.size), dtype=np.uint16)
+        world.floor_y = y0
+        world.route_cache = {}
+        world.inner = (x0, x1, z0, z1)
+        world.fills = []
+        world.map_name = name
+        world.snapshot()
+        return world
+
+    def fill(self, ax: int, ay: int, az: int, bx: int, by: int, bz: int, name: str) -> None:
+        """/fill судьи: как _fill, но не в список построек мира (fills — для
+        сверки с Node: упражнения перестраивают дорожки тысячи раз)."""
+        lo = np.maximum(np.minimum([ax, ay, az], [bx, by, bz]) - self.origin, 0)
+        hi = np.minimum(np.maximum([ax, ay, az], [bx, by, bz]) - self.origin + 1, self.size)
+        if np.any(lo >= hi):
+            return
+        self.blocks[lo[0]:hi[0], lo[1]:hi[1], lo[2]:hi[2]] = BLOCK_ID[name]
+        self.route_cache.clear()
+
     def snapshot(self) -> None:
         """Запомнить арену как есть (после постройки) — её вернёт reset()."""
         self.original = self.blocks.copy()

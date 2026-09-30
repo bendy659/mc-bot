@@ -52,7 +52,7 @@ public final class McBotPlugin extends JavaPlugin {
         // mineflayer (js/bot.js) Python раздавал бы действия по кругу и Node,
         // и плагину — половина действий ботов терялась бы.
         Bukkit.getPluginManager().registerEvents(new McBotListener(this, swarm, commands), this);
-        bedwarsRules = new BedwarsRules(config.taskWorlds().get("bedwars"));
+        bedwarsRules = new BedwarsRules(config.taskWorlds().get("bedwars"), config.taskWorlds().get("drills"));
         Bukkit.getPluginManager().registerEvents(bedwarsRules, this);
         Bukkit.getScheduler().runTaskTimer(this, () -> swarm.tick(), 1L, 1L);
     }
@@ -138,13 +138,44 @@ public final class McBotPlugin extends JavaPlugin {
                 long started = System.currentTimeMillis();
                 try {
                     World world = taskWorlds.loadMap("bedwars", regions);
-                    bedwarsRules.clear();
+                    if (world != null) bedwarsRules.clear(world.getName());
                     sender.sendMessage(world == null
                         ? "Карта не загружена: нет " + regions + " или мира задачки bedwars (bot.task_worlds)."
                         : "Карта " + map + " — в мире " + world.getName() + " (" + (System.currentTimeMillis() - started) + " мс).");
                 } catch (IOException err) {
                     sender.sendMessage("Карта не загружена: " + err.getMessage());
                 }
+            }
+            case "drill" -> {
+                // Упражнения бедварса (py/bedwars_drills.py) — в своём мире задачки
+                // (bot.task_worlds.drills), который НЕ перезагружается: пустой мир
+                // бедварса с каждой загрузкой заново генерировал вечно загруженные
+                // чанки дорожек, и сервер висел до минуты (2026-09-30). Здесь —
+                // загрузить участок дорожек (сразу, не "когда-нибудь": fill в
+                // незагруженном чанке не работает) и держать загруженным:
+                // /mcbot drill <x0> <z0> <x1> <z1>. Второй раз — мгновенно.
+                if (args.length < 5) return false;
+                if (config.taskWorlds().get("drills") == null) {
+                    sender.sendMessage("Нет мира упражнений: config.json bot.task_worlds.drills.");
+                    return true;
+                }
+                World world = taskWorlds.forTask("drills");
+                bedwarsRules.clear(world.getName());
+                int x0 = Integer.parseInt(args[1]) >> 4, z0 = Integer.parseInt(args[2]) >> 4;
+                int x1 = Integer.parseInt(args[3]) >> 4, z1 = Integer.parseInt(args[4]) >> 4;
+                long started = System.currentTimeMillis();
+                int loaded = 0;
+                for (int cx = Math.min(x0, x1); cx <= Math.max(x0, x1); cx++) {
+                    for (int cz = Math.min(z0, z1); cz <= Math.max(z0, z1); cz++) {
+                        if (!world.isChunkForceLoaded(cx, cz)) {
+                            world.getChunkAt(cx, cz);  // загрузить (сгенерировать пустоту) сейчас
+                            world.setChunkForceLoaded(cx, cz, true);
+                            loaded++;
+                        }
+                    }
+                }
+                sender.sendMessage("Упражнения: мир " + world.getName() + ", новых чанков " + loaded + " ("
+                    + (System.currentTimeMillis() - started) + " мс).");
             }
             case "act" -> {
                 // Отладка: один набор действий боту без Python — /mcbot act AI_1 jump head_idle place_below
