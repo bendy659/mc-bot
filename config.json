@@ -230,7 +230,7 @@
             "auto_seconds": 90
         },
         "bedwars": {"version": 1, "gamma": 0.97, "epsilon_decay_steps": 40000, "inputs": {"hearing": false},
-            "start_blocks": 0, "game_seconds": 300, "restart_pause_seconds": 3, "fight_radius": 6,
+            "start_blocks": 0, "team_size": 2, "defend_chance": 0.5, "game_seconds": 300, "restart_pause_seconds": 3, "fight_radius": 6,
             "hit_reward": 3.0, "bed_reward": 100.0, "kill_reward": 30.0, "bed_lost_penalty": -20.0,
             "win_reward": 100.0, "lose_penalty": -30.0, "death_penalty": -30.0},
         "bridge": {

@@ -269,7 +269,7 @@ dead, добил последний, кто нанёс урон (`damage_dealt`)
 (`server/bw_maps/`, миры 1.8) -> `py/bedwars_maps.py` (описания
 `data/bedwars/maps/*.json`, сетки для симуляции `*.npz` — их переводит САМ
 сервер, `--convert`; формы блоков `data/bedwars/block_shapes.json` — из Node,
-`--shapes`). Судья — `py/bedwars_game.py` (две команды на одной стороне карты,
+`--shapes`). Судья — `py/bedwars_game.py` (матчи по две команды — team_size в каждой, каждый на своей паре островов,
 возрождение через 5 с, выбывание, пустота, победа); его команды — строки
 команд сервера, их исполняют и плагин (RCON), и `SimArena.command`. Плагин:
 `/mcbot bedwars <карта>` — карта в мир задачки заново (TaskWorlds.loadMap),

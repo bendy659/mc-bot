@@ -392,11 +392,26 @@ def bridge_rescue(state: dict) -> dict | None:
 
 
 BED_REACH = 4.0     # бедварс: кровать ближе стольки (от глаз) — наводиться и копать
-EDGE_AHEAD = 1.0    # бедварс: пола впереди меньше стольки — край острова, начинать мост
+LAUNCH_REACH = 1.0  # бедварс: точка неполного маршрута ближе стольки — дошёл до края, начинать мост
 EDGE_WALK = 2.9     # ...а меньше стольки (чувство пола видит до 3) — к краю шагом, не бегом
 STUCK_DECISIONS = 10  # мост: пятится и не двигается столько решений — упёрся, снова к краю
 ENEMY_REACH = 3.5   # враг ближе — бить; дальше и за пустотой — строить мост дальше
 NARROW = 1.0        # пола сбоку меньше — узкий мост: не бегать
+EDGE_TURN = math.radians(20)  # у края угол до цели больше — сперва довернуть на месте
+
+
+def _careful_steer(me: dict, target: dict, ground: list) -> tuple[str, str]:
+    """_steer, но у края и на узком — шагом, а круто поворачивать — стоя:
+    бегом с поворотом на ходу учитель срезал углы и слетал с острова
+    (Egg Hunt: тропинки у точки появления, 2026-09-30)."""
+    error = aim_errors(me, target)[0]
+    legs, head = _steer(error)
+    if ground[0] < EDGE_WALK or min(ground[1], ground[3]) < NARROW:
+        if abs(error) > EDGE_TURN:
+            return "idle", ("look_left" if error > 0 else "look_right")
+        if legs == "sprint_forward":
+            legs = "walk_forward"
+    return legs, head
 
 
 COVER_GIVE_UP = 40   # защитник: столько решений не вышло закрыть клетку — дальше
@@ -529,9 +544,8 @@ def bedwars_actions(state: dict, module) -> dict:
                                         "z": head_cell[2] + 0.5, "h": 0.0})
             goal = state["target"]
         else:
-            legs, head = _steer(aim_errors(me, module.observe(state)["target"])[0])
-            if legs == "sprint_forward" and min(ground[1], ground[3]) < NARROW:
-                legs = "walk_forward"  # узкий мост: к врагу шагом, бегом слетал
+            # Узкий мост, край: к врагу шагом, бегом слетал.
+            legs, head = _careful_steer(me, module.observe(state)["target"], ground)
             return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
     eye = (me["x"], me["y"] + 1.62, me["z"])
     if math.dist(eye, (goal["x"], goal["y"], goal["z"])) <= BED_REACH:
@@ -545,20 +559,20 @@ def bedwars_actions(state: dict, module) -> dict:
                  and (center["name"].endswith("_bed") or center["name"].endswith("_wool")))
         return {"legs": legs, "head": _aim_head(yaw_error, pitch_error),
                 "hands": "attack_center" if aimed or strike else "hands_idle"}
+    waypoint = route.get("waypoint")
+    at_route_end = waypoint is not None and math.hypot(waypoint["x"] - me["x"], waypoint["z"] - me["z"]) < LAUNCH_REACH
     if route.get("complete"):
         module.teacher_bridging = False
-    elif not getattr(module, "teacher_bridging", False) and route and (state.get("ground") or [3.0])[0] > EDGE_AHEAD:
+    elif not getattr(module, "teacher_bridging", False) and route and not at_route_end:
         # Дойти нельзя: маршрут ведёт к ближайшей к цели достижимой точке (край
-        # своего острова или конец моста) — сперва туда, к краю шагом (бегом
-        # проскакивал в пустоту по инерции). Впереди пола меньше EDGE_AHEAD —
-        # край: дальше мост, до полного маршрута (развернувшись для моста,
-        # впереди снова остров — не идти же к краю заново).
-        legs, head = _steer(aim_errors(me, module.observe(state)["target"])[0])
-        if legs == "sprint_forward" and (state.get("ground") or [3.0])[0] < EDGE_WALK:
-            legs = "walk_forward"
+        # своего острова или конец моста) — сперва туда, шагом (бегом
+        # проскакивал в пустоту по инерции). Дошёл (точка маршрута под ногами)
+        # — мост, до полного маршрута. Раньше мост начинался, когда "впереди
+        # мало пола", — у сложных островов это бывало не у края (упор в стену).
+        legs, head = _careful_steer(me, module.observe(state)["target"], ground)
         return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
     if route.get("complete"):
-        legs, head = _steer(aim_errors(me, module.observe(state)["target"])[0])
+        legs, head = _careful_steer(me, module.observe(state)["target"], ground)
         return {"legs": legs, "head": _level(me, head), "hands": "attack_center" if strike else "hands_idle"}
     module.teacher_bridging = True
     actions = bridge_actions(state)

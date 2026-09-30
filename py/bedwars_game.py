@@ -2,10 +2,12 @@
 против ботов — бесконечные игры") на картах Hypixel (server/bw_maps,
 описания — data/bedwars/maps/<карта>.json, py/bedwars_maps.py).
 
-Пока — две команды (автор, 2026-09-30: "обучение и так даётся медленно"):
-случайная карта и два соседних острова на одной стороне карты (мост между
-ними прямой; straight_pairs: false — любые соседи, и через угол). Экономики ещё нет: у всех
-меч и стопка шерсти своего цвета (start_blocks), после возрождения — снова.
+Матч — две команды (автор, 2026-09-30: "обучение и так даётся медленно")
+на двух соседних островах одной стороны карты (мост между ними прямой;
+straight_pairs: false — любые соседи, и через угол). Рой делится на матчи по
+team_size в команде — все на одной случайной карте, на разных парах островов.
+Набор — деревянный меч; шерсть — за железо с генератора своего острова
+(экономика ниже; start_blocks > 0 — старый режим, шерсть даром).
 
 Правила, как в бедварсе:
   - кровать цела — умерший возрождается у себя на острове; сломана —
@@ -74,6 +76,16 @@ class BedwarsGame:
         self.fight_radius = cfg.get("fight_radius", 6.0)
         self.guard_radius = cfg.get("guard_radius", 10.0)
         self.straight_pairs = cfg.get("straight_pairs", True)
+        # Защитник у команды — не в каждой игре: когда он есть у обеих, атакующие
+        # сходятся на мостах, победителя добивает свежий защитник, и кровати
+        # не ломал никто (учителя 4 на 4, 2026-09-30: 0 кроватей за 8 минут) —
+        # сеть не видела бы награды за кровать вовсе.
+        self.defend_chance = cfg.get("defend_chance", 0.5)
+        # Игроков в команде: рой делится на матчи — пары команд на разных парах
+        # островов одной карты (команды 0-1, 2-3...). 4 на 4 на одном мосту шли
+        # вничью: атакующие гуськом сходились в середине моста, и до кровати не
+        # доходил никто; 2 на 2 кровати ломают (учителя, 2026-09-30).
+        self.team_size = max(1, cfg.get("team_size", 2))
         self.respawn_seconds = cfg.get("respawn_seconds", 5.0)
         # Экономика: генератор у точки появления команды, магазин там же.
         self.iron_seconds = cfg.get("iron_seconds", 0.3)
@@ -85,7 +97,9 @@ class BedwarsGame:
         self.shop_radius = cfg.get("shop_radius", 2.5)
         self.world = config["bot"].get("task_worlds", {}).get(BEDWARS)
         self.map: dict | None = None      # описание карты (json)
-        self.teams: list[dict] = []       # две команды: color, bed, spawn, bed_alive, members
+        # Команды: color, bed, spawn, bed_alive, members, done (матч кончился);
+        # соперник команды i — команда i ^ 1 (матчи — пары 0-1, 2-3...).
+        self.teams: list[dict] = []
         self.players: dict[int, dict] = {}  # id сессии -> team, entity_id, pos, dead, out, ready...
         self.started_at: float | None = None
         self.next_game_at = 0.0           # когда начать следующую игру (после паузы)
@@ -122,23 +136,33 @@ class BedwarsGame:
             pairs = [(i, j) for i, j in pairs
                      if min(abs(teams[i]["bed"]["head"][0] - teams[j]["bed"]["head"][0]),
                             abs(teams[i]["bed"]["head"][2] - teams[j]["bed"]["head"][2])) <= 2] or pairs
-        first, second = self.rng.choice(pairs)
-        pair = [teams[first], teams[second]]
-        self.teams = [{"color": t["color"], "bed": t["bed"], "spawn": t["spawn"], "bed_alive": True, "members": []}
-                      for t in pair]
+        # Матчи — на непересекающихся парах островов, сколько влезет на карту.
+        wanted = max(1, len(session_ids) // (2 * self.team_size))
+        self.rng.shuffle(pairs)
+        chosen, used = [], set()
+        for first, second in pairs:
+            if len(chosen) < wanted and first not in used and second not in used:
+                chosen.append((first, second))
+                used.update((first, second))
+        self.teams = [{"color": teams[i]["color"], "bed": teams[i]["bed"], "spawn": teams[i]["spawn"],
+                       "bed_alive": True, "members": [], "done": False}
+                      for pair in chosen for i in pair]
         ids = list(session_ids)
         self.rng.shuffle(ids)
         self.players = {}
         for index, session_id in enumerate(ids):
-            team = index % 2
-            # Первый в команде (если в ней двое и больше) — защитник: закрыть
-            # свою кровать шерстью и стоять у неё (автор: "даже кровать не
-            # защищают"); остальные — в атаку.
-            role = DEFEND if index < 2 and len(ids) >= 4 else ATTACK
+            team = index % len(self.teams)
             self.teams[team]["members"].append(session_id)
-            self.players[session_id] = {"team": team, "role": role, "name": name_of(session_id), "entity_id": None,
+            self.players[session_id] = {"team": team, "role": ATTACK, "name": name_of(session_id), "entity_id": None,
                                         "pos": None, "dead": False, "out": False, "ready": False, "sent": 0.0,
                                         "states": 0, "hit_by": None, "hit_at": 0.0}
+        for team in self.teams:
+            # Первый в команде (если в ней двое и больше) — защитник: закрыть
+            # свою кровать шерстью и стоять у неё (автор: "даже кровать не
+            # защищают"); остальные — в атаку. Защитник есть не всегда
+            # (defend_chance): иначе кровати почти не ломаются.
+            if len(team["members"]) >= 2 and self.rng.random() < self.defend_chance:
+                self.players[team["members"][0]]["role"] = DEFEND
         self.started_at = now
         self.stats["games"] += 1
         self.commands.append(f"mcbot bedwars {name}")
@@ -178,19 +202,28 @@ class BedwarsGame:
         self.commands += commands
         player.update(ready=False, sent=now, states=0)
 
-    def end_game(self, winner: int | None, now: float | None = None) -> None:
-        """Конец игры: победителям — WON, проигравшим — LOST (кто ещё жив —
-        тоже: игра для них кончилась), ничья — TIME_UP всем."""
+    def end_match(self, team_index: int, winner: int | None) -> None:
+        """Конец матча команды team_index и её соперника: победителям — WON,
+        проигравшим — LOST (кто ещё жив — тоже: игра для них кончилась),
+        ничья — TIME_UP. Игроки кончившегося матча ждут конца игры (waiting)."""
+        match = (team_index & ~1, team_index | 1)
+        for index in match:
+            team = self.teams[index]
+            team["done"] = True
+            for session_id in team["members"]:
+                player = self.players[session_id]
+                if winner is None:
+                    self._event(session_id, TIME_UP)
+                elif not player["out"] or index == winner:
+                    self._event(session_id, WON if index == winner else LOST)
+        self.stats["time_up" if winner is None else "decided"] += 1
+
+    def end_game(self, now: float | None = None) -> None:
+        """Конец игры: матчи, что ещё идут, — ничья; через паузу — новая игра."""
         now = time.time() if now is None else now
-        for session_id, player in self.players.items():
-            if winner is None:
-                self._event(session_id, TIME_UP)
-            elif not player["out"] or player["team"] == winner:
-                self._event(session_id, WON if player["team"] == winner else LOST)
-        if winner is None:
-            self.stats["time_up"] += 1
-        else:
-            self.stats["decided"] += 1
+        for index in range(0, len(self.teams), 2):
+            if not self.teams[index]["done"]:
+                self.end_match(index, None)
         self.started_at = None
         self.next_game_at = now + self.pause
 
@@ -208,7 +241,7 @@ class BedwarsGame:
         player["entity_id"] = me.get("entity_id")
         for hit in state.get("damage_dealt") or []:
             victim = self._by_entity(hit.get("id"))
-            if victim is not None and self.players[victim]["team"] != player["team"]:
+            if victim is not None and self.players[victim]["team"] == player["team"] ^ 1:
                 self.players[victim].update(hit_by=session_id, hit_at=now)
         if player["out"]:
             return
@@ -290,11 +323,16 @@ class BedwarsGame:
         player = self.players[session_id]
         team = self.teams[player["team"]]
         name = player["name"]
-        for item, key in (("iron_ingot", "iron"), ("gold_ingot", "gold")):
-            if team.get(key, 0) > 0:
-                self.commands.append(f"give {name} minecraft:{item} {team[key]}")
-                team[key] = 0
         iron = (state.get("inventory_items") or {}).get("iron_ingot", 0)
+        player["iron"] = iron
+        # Куча — тому из команды у генератора, у кого железа меньше всех: иначе
+        # её каждый раз забирал один (защитник без шерсти ждал вечно).
+        poorest = min((self.players[sid].get("iron", 0) for sid in team["members"] if self.at_shop(sid)), default=iron)
+        if iron <= poorest:
+            for item, key in (("iron_ingot", "iron"), ("gold_ingot", "gold")):
+                if team.get(key, 0) > 0:
+                    self.commands.append(f"give {name} minecraft:{item} {team[key]}")
+                    team[key] = 0
         if hands_action == "buy" and iron >= self.wool_price:
             self.commands += [f"clear {name} minecraft:iron_ingot {self.wool_price}",
                               f"give {name} minecraft:{team['color']}_wool {self.wool_amount}"]
@@ -322,7 +360,7 @@ class BedwarsGame:
         self.stats["beds"] += 1
         bed = team["bed"]["head"]
         enemies = [(math.dist(p["pos"], bed), sid) for sid, p in self.players.items()
-                   if p["team"] != team_index and not p["dead"] and not p["out"] and p["pos"] is not None]
+                   if p["team"] == team_index ^ 1 and not p["dead"] and not p["out"] and p["pos"] is not None]
         if enemies:
             self._event(min(enemies)[1], BED)
         for session_id in team["members"]:
@@ -334,15 +372,17 @@ class BedwarsGame:
                 self.commands.append(f"gamemode spectator {player['name']}")
 
     def check_end(self, now: float | None = None) -> None:
-        """Победа (у соперника все выбыли) или время вышло."""
+        """Победа в матче (у соперника все выбыли); все матчи кончились или
+        время вышло — конец игры."""
         now = time.time() if now is None else now
         if self.started_at is None:
             return
         alive = [any(not self.players[sid]["out"] for sid in team["members"]) for team in self.teams]
-        if not alive[0] or not alive[1]:
-            self.end_game(1 if alive[1] else 0 if alive[0] else None, now)
-        elif now - self.started_at > self.game_seconds:
-            self.end_game(None, now)
+        for index in range(0, len(self.teams), 2):
+            if not self.teams[index]["done"] and not (alive[index] and alive[index + 1]):
+                self.end_match(index, index if alive[index] else index + 1 if alive[index + 1] else None)
+        if all(team["done"] for team in self.teams) or now - self.started_at > self.game_seconds:
+            self.end_game(now)
 
     # --- что сказать ботам -------------------------------------------------------
 
@@ -351,14 +391,14 @@ class BedwarsGame:
         возрождения, телепорт ещё не дошёл."""
         player = self.players.get(session_id)
         return (self.started_at is None or player is None or player["out"] or not player["ready"]
-                or player.get("respawn_at") is not None)
+                or player.get("respawn_at") is not None or self.teams[player["team"]]["done"])
 
     def enemy_ids(self, session_id: int) -> list[int]:
         player = self.players.get(session_id)
         if player is None:
             return []
         return [p["entity_id"] for p in self.players.values()
-                if p["team"] != player["team"] and not p["out"] and p["entity_id"] is not None]
+                if p["team"] == player["team"] ^ 1 and not p["out"] and p["entity_id"] is not None]
 
     def target_for(self, session_id: int) -> dict | None:
         """Атакующему: враг ближе fight_radius — бить его; иначе чужая кровать;
@@ -369,10 +409,10 @@ class BedwarsGame:
         if player is None or player["pos"] is None:
             return None
         enemies = [p for p in self.players.values()
-                   if p["team"] != player["team"] and not p["dead"] and not p["out"] and p["pos"] is not None
+                   if p["team"] == player["team"] ^ 1 and not p["dead"] and not p["out"] and p["pos"] is not None
                    and p["entity_id"] is not None]
         nearest = min(enemies, key=lambda p: math.dist(p["pos"], player["pos"]), default=None)
-        enemy_team = self.teams[1 - player["team"]]
+        enemy_team = self.teams[player["team"] ^ 1]
         own_team = self.teams[player["team"]]
         if player["role"] == DEFEND and own_team["bed_alive"]:
             bed = own_team["bed"]["head"]
@@ -412,7 +452,7 @@ class BedwarsGame:
         player = self.players.get(session_id)
         if player is None:
             return None
-        team = self.teams[1 - player["team"]]
+        team = self.teams[player["team"] ^ 1]
         return team["bed"] if team["bed_alive"] else None
 
     def team_of(self, session_id: int) -> int | None:
@@ -429,9 +469,10 @@ class BedwarsGame:
     def describe(self) -> str:
         if self.map is None:
             return "бедварс: игры ещё не было"
-        teams = ", ".join(f"{t['color']} ({len(t['members'])}, кровать {'цела' if t['bed_alive'] else 'сломана'})"
-                          for t in self.teams)
-        return f"бедварс: {self.map['name']} — {teams}"
+        teams = [f"{t['color']} ({len(t['members'])}, кровать {'цела' if t['bed_alive'] else 'сломана'})"
+                 for t in self.teams]
+        matches = "; ".join(f"{teams[i]} против {teams[i + 1]}" for i in range(0, len(teams), 2))
+        return f"бедварс: {self.map['name']} — {matches}"
 
     # --- мелочи ---------------------------------------------------------------
 
