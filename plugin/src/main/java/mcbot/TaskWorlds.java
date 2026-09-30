@@ -1,5 +1,9 @@
 package mcbot;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Random;
@@ -47,6 +51,46 @@ final class TaskWorlds {
     World forTask(String task) {
         String name = names.get(task);
         return name != null ? load(name) : Bukkit.getWorlds().getFirst();
+    }
+
+    /**
+     * Мир задачки заново — из регионов готовой карты (бедварс: server/bw_maps/<карта>/region,
+     * миры Hypixel 1.8 — Paper переводит их чанки в новый формат сам, при загрузке).
+     * Это и установка карты, и её сброс между играми: всё, что построили и сломали,
+     * пропадает вместе со старыми регионами. Кто был в мире — переносятся в обычный мир.
+     * Возвращает мир или null (карты нет, мир не выгрузился).
+     */
+    World loadMap(String task, Path regions) throws IOException {
+        String name = names.get(task);
+        if (name == null || !Files.isDirectory(regions)) return null;
+        World world = load(name);
+        if (world == null) return null;
+        Path folder = world.getWorldFolder().toPath();
+        Location away = Bukkit.getWorlds().getFirst().getSpawnLocation();
+        for (org.bukkit.entity.Player player : world.getPlayers()) player.teleport(away);
+        if (!Bukkit.unloadWorld(world, false)) {
+            log.warning("Мир " + name + " не выгрузился — карта не сменена.");
+            return null;
+        }
+        // Старые чанки, сущности и точки интереса — прочь; иначе поверх новой
+        // карты остались бы чужие постройки и мобы.
+        for (String part : new String[] {"region", "entities", "poi"}) deleteTree(folder.resolve(part));
+        Files.createDirectories(folder.resolve("region"));
+        try (var files = Files.list(regions)) {
+            for (Path file : (Iterable<Path>) files::iterator) {
+                if (file.getFileName().toString().endsWith(".mca")) {
+                    Files.copy(file, folder.resolve("region").resolve(file.getFileName()));
+                }
+            }
+        }
+        return load(name);
+    }
+
+    private static void deleteTree(Path root) throws IOException {
+        if (!Files.exists(root)) return;
+        try (var paths = Files.walk(root)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
+        }
     }
 
     private World load(String name) {

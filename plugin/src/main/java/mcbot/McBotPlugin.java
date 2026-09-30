@@ -125,6 +125,23 @@ public final class McBotPlugin extends JavaPlugin {
                 player.teleport(world.getSpawnLocation());
                 sender.sendMessage(player.getName() + " -> мир " + world.getName() + ".");
             }
+            case "bedwars" -> {
+                // Карта бедварса в мир задачки bedwars — заново (и сброс карты
+                // между играми): /mcbot bedwars <карта из server/bw_maps>. Судья —
+                // Python (по RCON); описание карты — data/bedwars/maps/<карта>.json.
+                if (args.length < 2) return false;
+                String map = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+                java.nio.file.Path regions = Bukkit.getWorldContainer().toPath().resolve("bw_maps").resolve(map).resolve("region");
+                long started = System.currentTimeMillis();
+                try {
+                    World world = taskWorlds.loadMap("bedwars", regions);
+                    sender.sendMessage(world == null
+                        ? "Карта не загружена: нет " + regions + " или мира задачки bedwars (bot.task_worlds)."
+                        : "Карта " + map + " — в мире " + world.getName() + " (" + (System.currentTimeMillis() - started) + " мс).");
+                } catch (IOException err) {
+                    sender.sendMessage("Карта не загружена: " + err.getMessage());
+                }
+            }
             case "act" -> {
                 // Отладка: один набор действий боту без Python — /mcbot act AI_1 jump head_idle place_below
                 if (args.length < 5) return false;

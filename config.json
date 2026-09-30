@@ -7,7 +7,7 @@
         "count": 12,
         "separator": "_",
         "body": "plugin",
-        "task_worlds": {"bridge": "mcbot_bridge"},
+        "task_worlds": {"bridge": "mcbot_bridge", "bedwars": "mcbot_bedwars"},
         "names": [
             "Егор",
             "Артём",
