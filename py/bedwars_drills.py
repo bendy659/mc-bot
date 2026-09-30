@@ -17,6 +17,10 @@ bedwars, у каждой пары (дуэль) или каждого бота (�
   - мини-бедварс 1 на 1 (MiniLayout): два островка с кроватями через пропасть
     в 5–10 блоков, у обоих меч и шерсть — мост навстречу врагу, драка,
     кровать (автор: "когда враг рядом — ссыкуют и стопорятся").
+  - защита кровати (GuardLayout): островок защитника с кроватью и пятачок
+    нападающего, между ними готовый мост; защитник закрывает кровать шерстью
+    и сбивает нападающего, нападающий — сломать кровать (автор: "даже
+    кровать не защищают").
 
 Раскладка — одна на симуляцию и сервер (как py/bridge_course.py): судья
 (py/bedwars_game.py) строит дорожки командами fill в мире упражнений
@@ -59,6 +63,12 @@ BED_FACINGS = {"south": (0, 1), "north": (0, -1), "east": (1, 0), "west": (-1, 0
 MINI_ISLAND = 2         # полуразмер островка: 5 x 5
 MINI_GAP = (5, 10)      # пропасть между островками
 MINI_BLOCKS = ("stone_bricks", "sandstone", "terracotta", "cobblestone", "oak_planks")
+
+# Защита кровати.
+GUARD_ISLAND = 3        # полуразмер островка защитника: 7 x 7
+GUARD_PAD = 1           # полуразмер пятачка нападающего: 3 x 3
+GUARD_GAP = (7, 12)     # длина готового моста между ними (короче — защитник не успевал закрыть кровать)
+GUARD_BRIDGE_WIDTHS = (1, 2, 3)
 
 # Тропа ходьбы по краю.
 EDGE_LENGTH = (18, 30)  # клеток по оси тропы
@@ -302,6 +312,51 @@ class MiniLayout:
 
     def describe(self) -> str:
         return f"мини {self.gap}"
+
+
+class GuardLayout:
+    """Защита кровати на дорожке lane: островок защитника (сторона
+    defend_side: 0 — ближе к z = 0, 1 — дальше) с кроватью в заднем ряду,
+    напротив — пятачок нападающего, между ними уже готовый мост в 1–3 блока.
+    Точки появления: защитник — посреди островка, нападающий — посреди
+    пятачка, оба лицом к мосту."""
+
+    def __init__(self, lane: int, rng: random.Random, defend_side: int):
+        self.lane = lane
+        self.x = lane_x(lane)
+        self.defend_side = defend_side
+        self.gap = rng.randint(*GUARD_GAP)
+        self.width = rng.choice(GUARD_BRIDGE_WIDTHS)
+        self.block = rng.choice(MINI_BLOCKS)
+        halves = [GUARD_ISLAND if side == defend_side else GUARD_PAD for side in (0, 1)]
+        near = halves[0]                                      # середина ближней площадки по z
+        far = 2 * halves[0] + 1 + self.gap + halves[1]        # ...дальней
+        centers = (near, far)
+        left = self.x - (self.width - 1) // 2
+        self.cells = [(self.x - halves[0], DRILL_Y, near - halves[0], self.x + halves[0], DRILL_Y, near + halves[0]),
+                      (left, DRILL_Y, near + halves[0] + 1, left + self.width - 1, DRILL_Y, far - halves[1] - 1),
+                      (self.x - halves[1], DRILL_Y, far - halves[1], self.x + halves[1], DRILL_Y, far + halves[1])]
+        y = DRILL_Y + 1
+        # Кровать — в заднем ряду островка (дальше всего от моста), поперёк дорожки.
+        back = near - GUARD_ISLAND if defend_side == 0 else far + GUARD_ISLAND
+        self.bed_foot, self.bed_facing = ((self.x - 1, y, back), "east") if defend_side == 0 else ((self.x + 1, y, back), "west")
+        self.spawns = [(self.x + 0.5, y, centers[0] + 0.5, 0), (self.x + 0.5, y, centers[1] + 0.5, 180)]
+
+    def bed(self, side: int) -> dict | None:
+        if side != self.defend_side:
+            return None
+        dx, dz = BED_FACINGS[self.bed_facing]
+        foot = self.bed_foot
+        return {"head": [foot[0] + dx, foot[1], foot[2] + dz], "foot": list(foot)}
+
+    def fills(self) -> list[tuple]:
+        return [(*cell, self.block) for cell in self.cells]
+
+    def commands(self) -> list[str]:
+        return bed_commands(self.bed_foot, self.bed_facing, BED_COLOR)
+
+    def describe(self) -> str:
+        return f"защита, мост {self.width}x{self.gap}"
 
 
 def clear_fill(lane: int) -> tuple:

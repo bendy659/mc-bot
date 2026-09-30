@@ -43,6 +43,11 @@ bedwars <карта> — это и сброс карты), телепорт, н�
     обоих меч и шерсть (mini_blocks); как игра на карте, только маленькая
     (победа — WON), потом реванш на новой раскладке; дольше mini_seconds —
     ничья.
+  - GUARD — защита кровати: у пары островок защитника с кроватью и пятачок
+    нападающего, между ними готовый мост; защитник (роль DEFEND) закрывает
+    кровать и сбивает, нападающий — ломает. Кровать сломана — победа
+    нападающего (WON), продержался guard_seconds — защитника; оба
+    возрождаются, пока идёт раунд. В реванше роли меняются.
 Упражнение длится drill_seconds, потом — новый сценарий. Упражнения — в
 своём мире (bot.task_worlds.drills; без него — только игры), дорожки строит
 судья командами fill.
@@ -56,7 +61,7 @@ import random
 import time
 from pathlib import Path
 
-from bedwars_drills import (DigLayout, DuelLayout, EdgeLayout, MiniLayout, clear_fill, drill_command,
+from bedwars_drills import (DigLayout, DuelLayout, EdgeLayout, GuardLayout, MiniLayout, clear_fill, drill_command,
                             void_y as drill_void_y)
 from bridge_course import fill_command
 
@@ -76,10 +81,11 @@ DUG = "dug"          # упражнение: прокопался и слома�
 TERMINAL_EVENTS = (WON, LOST, DUEL_WON, DUEL_LOST, GOAL, DUG)  # исходы — конец эпизода (ai_loop._end_episode)
 ATTACK = "attack"    # роль: к чужой кровати
 DEFEND = "defend"    # роль: закрыть свою кровать и стоять у неё
-GAME, DUEL, EDGE, DIG, MINI = "game", "duel", "edge", "dig", "mini"  # сценарии: бедварс на карте и упражнения
+GAME, DUEL, EDGE, DIG, MINI, GUARD = "game", "duel", "edge", "dig", "mini", "guard"  # сценарии: игра и упражнения
 SCENARIO_NAMES = {GAME: "игра", DUEL: "дуэли", EDGE: "ходьба по краю", DIG: "прокопаться к кровати",
-                  MINI: "мини-бедварс"}
-MATCH_DRILLS = (DUEL, MINI)  # упражнения-матчи: пара команд на дорожке, реванш
+                  MINI: "мини-бедварс", GUARD: "защита кровати"}
+MATCH_DRILLS = (DUEL, MINI, GUARD)  # упражнения-матчи: пара команд на дорожке, реванш
+BED_DRILLS = (MINI, GUARD)          # ...с кроватями и шерстью в наборе
 SOLO_DRILLS = (EDGE, DIG)    # упражнения в одиночку: бот на дорожке, попытка за попыткой
 # Цвета команд (bedwars_maps.TEAM_COLORS) -> цвета /team сервера.
 TEAM_COLOR = {"red": "red", "blue": "blue", "lime": "green", "yellow": "yellow", "cyan": "aqua", "white": "white",
@@ -93,6 +99,11 @@ KILL_CREDIT_SECONDS = 10.0  # убийство засчитывается том
 BED_CHECK_DELAY = 3.0       # секунд с начала игры, пока кровати не проверяются
 JOIN_SECONDS = 2.0          # первая игра — через столько после первого бота (ждём остальных)
 DUEL_PAUSE = 1.0            # дуэль кончилась — реванш через столько
+GUARD_HEAD_START = 8.0      # защита кровати: нападающий появляется позже — защитник успевает закрыть кровать
+GUARD_BED_RADIUS = 6.0      # ...защитник бросается на врага ближе стольки к кровати
+GUARD_SELF_RADIUS = 3.5     # ...или к себе самому (дальше — не уходит от кровати)
+GUARD_DEFENDER_RESPAWN = 1.0  # ...и возрождается быстрее нападающего (тот — mini_respawn_seconds):
+                              # за 3 с нападающий успевал прокопать укрытие и сломать кровать
 
 
 def clock() -> float:
@@ -145,6 +156,7 @@ class BedwarsGame:
         self.mini_seconds = cfg.get("mini_seconds", 120.0)
         self.mini_blocks = cfg.get("mini_blocks", 48)
         self.mini_respawn_seconds = cfg.get("mini_respawn_seconds", 3.0)
+        self.guard_seconds = cfg.get("guard_seconds", 30.0)
         self.scenario = GAME
         worlds = config["bot"].get("task_worlds", {})
         self.world = worlds.get(BEDWARS)
@@ -193,6 +205,19 @@ class BedwarsGame:
         self._setup_server_teams()
         for session_id in self.players:
             self._spawn(session_id, now, kit=True)
+        self._hold_attackers(self.players, now)
+
+    def _hold_attackers(self, session_ids, now: float) -> None:
+        """Защита кровати: нападающий — на GUARD_HEAD_START позже (пока зритель):
+        иначе он приходил к кровати раньше, чем защитник успевал её закрыть,
+        и защита почти всегда проигрывала (учителя: 58 кроватей из ~63 раундов)."""
+        if self.scenario != GUARD:
+            return
+        for session_id in session_ids:
+            player = self.players[session_id]
+            if player["role"] == ATTACK:
+                player["respawn_at"] = now + GUARD_HEAD_START
+                self.commands.append(f"gamemode spectator {player['name']}")
 
     def _new_map_game(self, session_ids: list[int], name_of) -> None:
         """Бедварс на случайной карте: пары соседних островов, игроки — по
@@ -259,9 +284,9 @@ class BedwarsGame:
         self.teams = []
         for lane in range(lanes):
             if self.scenario in MATCH_DRILLS:
-                layout = DuelLayout(lane, self.rng) if self.scenario == DUEL else MiniLayout(lane, self.rng)
+                layout = self._match_layout(lane, self.rng.randrange(2))
                 for side, color in enumerate(DUEL_COLORS):
-                    bed = layout.bed(side) if self.scenario == MINI else None
+                    bed = layout.bed(side) if self.scenario in BED_DRILLS else None
                     self.teams.append(self._drill_team(color, f"bw_{color}{lane}", lane, layout, layout.spawns[side],
                                                        now, bed))
             else:
@@ -278,6 +303,23 @@ class BedwarsGame:
             self.players[session_id] = {"team": team, "role": ATTACK, "name": name_of(session_id), "entity_id": None,
                                         "pos": None, "dead": False, "out": False, "ready": False, "sent": 0.0,
                                         "states": 0, "hit_by": None, "hit_at": 0.0}
+        self._assign_guard_roles()
+
+    def _match_layout(self, lane: int, defend_side: int = 0):
+        """Раскладка упражнения-матча на дорожке (у защиты — чей островок с кроватью)."""
+        if self.scenario == DUEL:
+            return DuelLayout(lane, self.rng)
+        if self.scenario == MINI:
+            return MiniLayout(lane, self.rng)
+        return GuardLayout(lane, self.rng, defend_side)
+
+    def _assign_guard_roles(self) -> None:
+        """Защита кровати: у кого кровать — защитник (учитель закрывает её
+        шерстью и стоит рядом), у кого нет — нападающий."""
+        if self.scenario != GUARD:
+            return
+        for player in self.players.values():
+            player["role"] = DEFEND if self.teams[player["team"]]["bed"] is not None else ATTACK
 
     @staticmethod
     def _drill_team(color: str, name: str | None, lane: int, layout, spawn: tuple, now: float,
@@ -342,7 +384,9 @@ class BedwarsGame:
             # (автор: "насильно выдаёшь ресурсы"). start_blocks > 0 — старый режим.
             commands += [f"gamemode survival {name}", f"clear {name}", f"give {name} minecraft:wooden_sword 1"]
             # Мини-бедварс: шерсть сразу (магазина нет); на карте — старый режим start_blocks.
-            blocks = self.mini_blocks if self.scenario == MINI else self.start_blocks
+            blocks = self.mini_blocks if self.scenario in BED_DRILLS else self.start_blocks
+            if self.scenario == GUARD and team["bed"] is None:
+                blocks = 0  # нападающему в защите мост не нужен — он готов
             if blocks > 0:
                 commands.append(f"give {name} minecraft:{team['color']}_wool {blocks}")
         commands.append(self._in_world(f"tp {name} {x + 0.5} {y} {z + 0.5} {yaw:.0f} 0"))
@@ -392,18 +436,22 @@ class BedwarsGame:
         self.next_game_at = now + self.pause
 
     def _rematch(self, team_index: int, now: float) -> None:
-        """Дуэль и мини-бедварс: реванш той же пары на новой раскладке своей дорожки."""
+        """Упражнение-матч: реванш той же пары на новой раскладке своей
+        дорожки (в защите кровати роли меняются: защищал — теперь нападай)."""
         first, second = self.teams[team_index & ~1], self.teams[team_index | 1]
-        layout = DuelLayout(first["lane"], self.rng) if self.scenario == DUEL else MiniLayout(first["lane"], self.rng)
+        old = first["layout"]
+        layout = self._match_layout(first["lane"], 1 - old.defend_side if self.scenario == GUARD else 0)
         self._build_lane(first["lane"], layout)
         for side, team in enumerate((first, second)):
             x, y, z, yaw = layout.spawns[side]
-            bed = layout.bed(side) if self.scenario == MINI else None
+            bed = layout.bed(side) if self.scenario in BED_DRILLS else None
             team.update(spawn=[math.floor(x), y, math.floor(z)], yaw=yaw, layout=layout, done=False,
                         round_at=now, rematch_at=None, bed=bed, bed_alive=bed is not None)
             for session_id in team["members"]:
                 self.players[session_id].update(out=False, respawn_at=None, hit_by=None)
                 self._spawn(session_id, now, kit=True)
+        self._assign_guard_roles()
+        self._hold_attackers(first["members"] + second["members"], now)
 
     def _new_attempt(self, team_index: int, now: float, kit: bool = False) -> None:
         """Одиночное упражнение: новая раскладка на дорожке бота (тропа или
@@ -483,11 +531,18 @@ class BedwarsGame:
             player["respawn_at"] = now + self.drill_respawn_seconds
             self.commands.append(f"gamemode spectator {player['name']}")
             return
+        if self.scenario == GUARD:
+            # Защита кровати: раунд кончает кровать или время, не выбывание —
+            # сбитый нападающий снова идёт на приступ, защитник — к кровати.
+            defender = self.teams[player["team"]]["bed"] is not None
+            player["respawn_at"] = now + (GUARD_DEFENDER_RESPAWN if defender else self.mini_respawn_seconds)
+            self.commands.append(f"gamemode spectator {player['name']}")
+            return
         if self.teams[player["team"]]["bed_alive"]:
             # Возрождение — через respawn_seconds (как в бедварсе: до того
             # зритель), на свой остров и снова с набором (вещи при смерти
             # выпадают). Сразу назад в бой — и драка на мосту шла без конца.
-            respawn = self.mini_respawn_seconds if self.scenario == MINI else self.respawn_seconds
+            respawn = self.mini_respawn_seconds if self.scenario in BED_DRILLS else self.respawn_seconds
             player["respawn_at"] = now + respawn
             self.commands.append(f"gamemode spectator {player['name']}")
             return
@@ -616,6 +671,9 @@ class BedwarsGame:
                 if self.scenario in MATCH_DRILLS and now >= team["rematch_at"]:
                     self._rematch(index, now)
                 continue
+            if self.scenario == GUARD:
+                self._check_guard(index, now)
+                continue
             limit = self.duel_seconds if self.scenario == DUEL else self.mini_seconds
             if not (alive[index] and alive[index + 1]):
                 self.end_match(index, index if alive[index] else index + 1 if alive[index + 1] else None, now)
@@ -626,6 +684,16 @@ class BedwarsGame:
                 self.end_game(now)
         elif all(team["done"] for team in self.teams) or now - self.started_at > self.game_seconds:
             self.end_game(now)
+
+    def _check_guard(self, index: int, now: float) -> None:
+        """Защита кровати: сломана — победа нападающего; продержался
+        guard_seconds — победа защитника."""
+        defender = index if self.teams[index]["bed"] is not None else index + 1
+        attacker = index + 1 if defender == index else index
+        if not self.teams[defender]["bed_alive"]:
+            self.end_match(index, attacker, now)
+        elif now - self.teams[index]["round_at"] > self.guard_seconds:
+            self.end_match(index, defender, now)
 
     # --- что сказать ботам -------------------------------------------------------
 
@@ -665,8 +733,12 @@ class BedwarsGame:
         own_team = self.teams[player["team"]]
         if player["role"] == DEFEND and own_team["bed_alive"]:
             bed = own_team["bed"]["head"]
-            threats = [p for p in enemies if math.dist(p["pos"], bed) <= self.guard_radius
-                       or math.dist(p["pos"], player["pos"]) <= self.fight_radius]
+            # В упражнении "защита" — ближе: там и остров маленький, а уйти с него
+            # драться на мост значило оставить кровать нападающему.
+            bed_radius, self_radius = ((GUARD_BED_RADIUS, GUARD_SELF_RADIUS) if self.scenario == GUARD
+                                       else (self.guard_radius, self.fight_radius))
+            threats = [p for p in enemies if math.dist(p["pos"], bed) <= bed_radius
+                       or math.dist(p["pos"], player["pos"]) <= self_radius]
             threat = min(threats, key=lambda p: math.dist(p["pos"], player["pos"]), default=None)
             if threat is not None:
                 x, y, z = threat["pos"]
@@ -699,7 +771,7 @@ class BedwarsGame:
         """Чужая кровать, пока цела, — учителю: мост строить к ней, даже когда
         цель на время — враг."""
         player = self.players.get(session_id)
-        if player is None or self.scenario not in (GAME, MINI):
+        if player is None or self.scenario not in (GAME, MINI, GUARD):
             return None
         team = self.teams[player["team"] ^ 1]
         return team["bed"] if team["bed_alive"] else None
