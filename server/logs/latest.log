@@ -110,3 +110,76 @@
 [13:41:20] [Server thread/INFO]: AI_12[/127.0.0.1:0] logged in with entity id 23 at ([minecraft:overworld]0.5, -60.0, 0.5)
 [13:41:20] [Server thread/INFO]: [McBot] Бот AI_12 зашёл: (0,5, -60,0, 0,5)
 [13:41:20] [RCON Client /127.0.0.1 #3/INFO]: Thread RCON Client /127.0.0.1 shutting down
+[13:52:44] [Async Chat Thread - #0/INFO]: [Not Secure] <_BENDY659_> !stop
+[13:52:44] [Server thread/INFO]: <AI_1> Пауза: ИИ остановлен у всех ботов. !resume — продолжить.
+[13:52:49] [RCON Listener #1/INFO]: Thread RCON Client /127.0.0.1 started
+[13:52:49] [Server thread/INFO]: AI_1 lost connection: mc-bot: бот выключен
+[13:52:49] [Server thread/INFO]: Максим [AI_1] left the game
+[13:52:49] [Server thread/INFO]: AI_2 lost connection: mc-bot: бот выключен
+[13:52:49] [Server thread/INFO]: Сергей [AI_2] left the game
+[13:52:49] [Server thread/INFO]: AI_3 lost connection: mc-bot: бот выключен
+[13:52:49] [Server thread/INFO]: Дмитрий [AI_3] left the game
+[13:52:49] [Server thread/INFO]: AI_4 lost connection: mc-bot: бот выключен
+[13:52:49] [Server thread/INFO]: Анна [AI_4] left the game
+[13:52:49] [Server thread/INFO]: AI_5 lost connection: mc-bot: бот выключен
+[13:52:49] [Server thread/INFO]: Андрей [AI_5] left the game
+[13:52:49] [Server thread/INFO]: AI_6 lost connection: mc-bot: бот выключен
+[13:52:49] [Server thread/INFO]: Софья [AI_6] left the game
+[13:52:49] [Server thread/INFO]: AI_7 lost connection: mc-bot: бот выключен
+[13:52:49] [Server thread/INFO]: Степан [AI_7] left the game
+[13:52:49] [Server thread/INFO]: AI_8 lost connection: mc-bot: бот выключен
+[13:52:49] [Server thread/INFO]: Полина [AI_8] left the game
+[13:52:49] [Server thread/INFO]: AI_9 lost connection: mc-bot: бот выключен
+[13:52:49] [Server thread/INFO]: Екатерина [AI_9] left the game
+[13:52:49] [Server thread/INFO]: AI_10 lost connection: mc-bot: бот выключен
+[13:52:49] [Server thread/INFO]: Вера [AI_10] left the game
+[13:52:49] [Server thread/INFO]: AI_11 lost connection: mc-bot: бот выключен
+[13:52:49] [Server thread/INFO]: Глеб [AI_11] left the game
+[13:52:49] [Server thread/INFO]: AI_12 lost connection: mc-bot: бот выключен
+[13:52:49] [Server thread/INFO]: Иван [AI_12] left the game
+[13:52:49] [RCON Client /127.0.0.1 #4/INFO]: Thread RCON Client /127.0.0.1 shutting down
+[13:52:49] [RCON Client /127.0.0.1 #2/INFO]: Thread RCON Client /127.0.0.1 shutting down
+[13:52:51] [Server thread/INFO]: Stopping the server
+[13:52:51] [Server thread/INFO]: Stopping server
+[13:52:51] [Server thread/INFO]: [McBot] Disabling McBot v0.1.0
+[13:52:51] [Server thread/INFO]: Saving players
+[13:52:51] [Server thread/INFO]: _BENDY659_ lost connection: Server closed
+[13:52:51] [Server thread/INFO]: _BENDY659_ left the game
+[13:52:51] [Server thread/INFO]: Saving worlds
+[13:52:51] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:overworld
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk system to halt for world 'minecraft:overworld'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Halted chunk system for world 'minecraft:overworld'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Saving all chunkholders for world 'minecraft:overworld'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Saved 0 block chunks, 9 entity chunks, 0 poi chunks in world 'minecraft:overworld' in 0,02s
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk I/O to halt for world 'minecraft:overworld'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Halted I/O scheduler for world 'minecraft:overworld'
+[13:52:51] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:the_nether
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk system to halt for world 'minecraft:the_nether'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Halted chunk system for world 'minecraft:the_nether'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Saving all chunkholders for world 'minecraft:the_nether'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Saved 0 block chunks, 0 entity chunks, 0 poi chunks in world 'minecraft:the_nether' in 0,00s
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk I/O to halt for world 'minecraft:the_nether'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Halted I/O scheduler for world 'minecraft:the_nether'
+[13:52:51] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:the_end
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk system to halt for world 'minecraft:the_end'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Halted chunk system for world 'minecraft:the_end'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Saving all chunkholders for world 'minecraft:the_end'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Saved 0 block chunks, 0 entity chunks, 0 poi chunks in world 'minecraft:the_end' in 0,00s
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk I/O to halt for world 'minecraft:the_end'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Halted I/O scheduler for world 'minecraft:the_end'
+[13:52:51] [Server thread/INFO]: Saving chunks for level 'ServerLevel[world]'/minecraft:mcbot_bridge
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk system to halt for world 'minecraft:mcbot_bridge'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Halted chunk system for world 'minecraft:mcbot_bridge'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Saving all chunkholders for world 'minecraft:mcbot_bridge'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Saved 801 block chunks, 0 entity chunks, 0 poi chunks in world 'minecraft:mcbot_bridge' in 0,13s
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Waiting 60s for chunk I/O to halt for world 'minecraft:mcbot_bridge'
+[13:52:51] [Server thread/INFO]: [ChunkHolderManager] Halted I/O scheduler for world 'minecraft:mcbot_bridge'
+[13:52:51] [Server thread/INFO]: ThreadedAnvilChunkStorage (world): All chunks are saved
+[13:52:51] [Server thread/INFO]: ThreadedAnvilChunkStorage (DIM-1): All chunks are saved
+[13:52:51] [Server thread/INFO]: ThreadedAnvilChunkStorage (DIM1): All chunks are saved
+[13:52:51] [Server thread/INFO]: ThreadedAnvilChunkStorage (mcbot_bridge): All chunks are saved
+[13:52:51] [Server thread/INFO]: ThreadedAnvilChunkStorage: All dimensions are saved
+[13:52:51] [Server thread/INFO]: Waiting for all RegionFile I/O tasks to complete...
+[13:52:51] [Server thread/INFO]: All RegionFile I/O tasks to complete
+[13:52:51] [Server thread/INFO]: [MoonriseCommon] Awaiting termination of worker pool for up to 60s...
+[13:52:51] [Server thread/INFO]: [MoonriseCommon] Awaiting termination of I/O pool for up to 60s...
