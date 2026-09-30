@@ -5,6 +5,8 @@ import com.google.gson.JsonObject;
 import java.util.Base64;
 import java.util.logging.Logger;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundBundlePacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.world.entity.Entity;
@@ -80,7 +82,18 @@ final class Bot {
 
     /** Всё, что сервер шлёт клиенту бота: звуки — в слух (js/hearing.js). */
     void onPacket(Packet<?> packet) {
-        if (packet instanceof ClientboundSoundPacket sound) {
+        if (packet instanceof ClientboundBundlePacket bundle) {
+            for (Packet<?> inner : bundle.subPackets()) onPacket(inner);
+        } else if (packet instanceof ClientboundSetEntityMotionPacket motion && motion.id() == player.getId()) {
+            // Отдача от удара: у игрока её применяет КЛИЕНТ по этому пакету, а
+            // сервер (Player.attack) свою скорость цели после отправки
+            // возвращает назад. Клиента у бота нет — применяем сами, как он.
+            // Без этого ботов плагина удары не отталкивали (автор, 2026-09-30),
+            // а в симуляции — отталкивали. Не сразу, а в начале своего тика:
+            // Player.attack сразу после отправки пакета возвращает цели старую
+            // скорость — клиент получил бы пакет уже после этого.
+            player.pendingMotion = motion.movement();
+        } else if (packet instanceof ClientboundSoundPacket sound) {
             hearing.addSound(player.getX(), player.getZ(), sound.getX(), sound.getZ(), sound.getVolume());
         } else if (packet instanceof ClientboundSoundEntityPacket sound) {
             Entity source = player.level().getEntity(sound.getId());

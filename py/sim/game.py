@@ -557,6 +557,8 @@ class SimArena:
             body.yaw = normalize_yaw(body.yaw + TURN_STEP)
         elif legs == "turn_right":
             body.yaw = normalize_yaw(body.yaw - TURN_STEP)
+        elif legs == "turn_around":
+            body.yaw = normalize_yaw(body.yaw + math.pi)
 
         head = actions.get("head", "head_idle")
         if head == "look_up":

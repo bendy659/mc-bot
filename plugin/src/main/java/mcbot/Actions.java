@@ -145,6 +145,8 @@ final class Actions {
             // yaw в конвенции mineflayer растёт ВЛЕВО.
             case "turn_left" -> turnView(TURN_STEP, 0);
             case "turn_right" -> turnView(-TURN_STEP, 0);
+            // Разворот за одно решение: по 30° к врагу за спиной — почти секунда (автор).
+            case "turn_around" -> turnView(Math.PI, 0);
             case "jump_forward" -> hold(() -> {
                 c.forward = true;
                 c.jump = true;

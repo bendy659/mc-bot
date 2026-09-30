@@ -218,6 +218,10 @@ class ActionExecutor {
             case 'turn_right':
                 this.turnView(-TURN_STEP, 0);
                 break;
+            case 'turn_around':
+                // По 30° разворот к врагу за спиной шёл почти секунду (автор).
+                this.turnView(Math.PI, 0);
+                break;
             case 'jump_forward':
                 // Комбинированный макрос: прыжок + движение вперёд,
                 // чтобы перепрыгивать препятствия высотой в один блок.
@@ -683,6 +687,7 @@ const CHANNELS = {
         'jump',
         'sneak_back',
         'sneak',
+        'turn_around', // разворот на 180° за одно решение (враг сзади)
     ],
     head: [
         'head_idle',

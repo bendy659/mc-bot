@@ -47,6 +47,10 @@ final class BotPlayer extends ServerPlayer {
             this.connection.resetPosition();
             this.level().getChunkSource().move(this);
         }
+        if (pendingMotion != null) {
+            setDeltaMovement(pendingMotion);  // отдача от удара (Bot.onPacket)
+            pendingMotion = null;
+        }
         applyControls();
         super.tick();   // серверные дела игрока: режим игры, неуязвимость, инвентарь
         this.doTick();  // сам игрок: физика шага, урон, еда — как у клиента игры
@@ -60,6 +64,9 @@ final class BotPlayer extends ServerPlayer {
     }
 
     int debugTicks; // отладка физики: сколько тиков писать в лог
+
+    /** Скорость из пакета ClientboundSetEntityMotionPacket (отдача): как клиент. */
+    net.minecraft.world.phys.Vec3 pendingMotion;
 
     /** Клавиши -> ввод движения: как у клиента (LocalPlayer), влево = +1. */
     private void applyControls() {

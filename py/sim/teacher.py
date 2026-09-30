@@ -23,15 +23,21 @@ from config import CONFIG
 from training_modules.targets import aim_errors
 
 FINE = math.radians(5)     # точнее не надо: голова доводит шагом 10°
+AROUND = math.radians(135)  # цель дальше за спиной — развернуться разом (turn_around)
 COARSE = math.radians(45)  # грубее — поворот ногами (шаг 30°) на месте; мельче — голова на бегу
 LEVEL = math.radians(6)    # наклон взгляда, который голова исправляет
 WALL = 2.5                 # блоков: стена ближе — туда не бежать
 
 
 def _steer(error: float) -> tuple[str, str]:
-    """Ноги и голова, чтобы развернуться на error радиан (плюс — влево)."""
+    """Ноги и голова, чтобы развернуться на error радиан (плюс — влево).
+    Цель за спиной — разворот за одно решение; просто сбоку — ноги и голова
+    разом (40° за решение): по 30° к врагу поворачивались "очень долго" (автор)."""
+    if abs(error) > AROUND:
+        return "turn_around", "head_idle"
     if abs(error) > COARSE:
-        return ("turn_left" if error > 0 else "turn_right"), "head_idle"
+        side = "left" if error > 0 else "right"
+        return f"turn_{side}", f"look_{side}"
     if abs(error) > FINE:
         return "sprint_forward", ("look_left" if error > 0 else "look_right")
     return "sprint_forward", "head_idle"
@@ -90,12 +96,14 @@ def _kill_charge(sharpness: int) -> float:
 KILL_CHARGE = _kill_charge(CONFIG["modules"].get("hunt", {}).get("sword_sharpness", 0))
 
 
-def _charged(state: dict) -> bool:
+def _charged(state: dict, full: bool = False) -> bool:
     """Пора бить: кулаком (или блоком в руке) — только в полную силу, слабый
     удар почти ничего не снимает, а заряд сбрасывает; мечом — как только удар
-    убивает (ждать полного заряда — цель уходит из зоны удара)."""
+    убивает (ждать полного заряда — цель уходит из зоны удара). full — только
+    в полную силу и мечом: в бедварсе меч простой, а порог "убивает сразу" —
+    от меча охоты (острота 255), и учитель махал впустую (автор: "удар не копят")."""
     need = 0.9
-    if state.get("inventory", {}).get("held") == "tool":
+    if state.get("inventory", {}).get("held") == "tool" and not full:
         need = min(need, KILL_CHARGE + 0.1)
     return state.get("attack_charge", 1.0) >= need
 
@@ -521,7 +529,7 @@ def bedwars_actions(state: dict, module) -> dict:
     goal = state.get("target")
     if goal is None:
         return {"legs": "idle", "head": _level(me, "head_idle"), "hands": "hands_idle"}
-    strike = bool(state.get("strike")) and _charged(state)
+    strike = bool(state.get("strike")) and _charged(state, full=True)
     route = state.get("route") or {}
     shopping = None if strike else bedwars_shopping(state, module)
     if shopping is not None:

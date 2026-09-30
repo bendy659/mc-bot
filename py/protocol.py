@@ -48,6 +48,7 @@ CHANNELS = {
         "jump",            # прыжок на месте (без движения вперёд) — например, чтобы поставить блок под себя
         "sneak_back",      # задом крадучись: с края блока крадущийся не сходит (мост над пустотой)
         "sneak",           # стоять крадучись (у края — не сорваться)
+        "turn_around",     # разворот на 180° за одно решение: враг сзади (по 30° — почти секунда)
     ],
     "head": [
         "head_idle",
@@ -91,6 +92,8 @@ ACTION_NAMES = [
     "sneak_back", "sneak",
     # 2026-09-30: бедварс — покупка без меню (тела бота её только принимают).
     "buy",
+    # 2026-09-30: бедварс — разворот (автор: "чтоб ударить, им нужно медленно развернуться").
+    "turn_around",
 ]
 assert sorted(ACTION_NAMES) == sorted(name for actions in CHANNELS.values() for name in actions), \
     "ACTION_NAMES должен содержать ровно действия из CHANNELS"
@@ -107,6 +110,7 @@ LOOK_YAW_STEP = math.radians(10)
 ACTION_ROTATION = {
     "turn_left": (TURN_STEP, 0.0),
     "turn_right": (-TURN_STEP, 0.0),
+    "turn_around": (math.pi, 0.0),
     "look_left": (LOOK_YAW_STEP, 0.0),
     "look_right": (-LOOK_YAW_STEP, 0.0),
     "look_up": (0.0, LOOK_STEP),

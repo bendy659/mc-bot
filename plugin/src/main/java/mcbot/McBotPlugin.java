@@ -148,11 +148,18 @@ public final class McBotPlugin extends JavaPlugin {
             }
             case "act" -> {
                 // Отладка: один набор действий боту без Python — /mcbot act AI_1 jump head_idle place_below
+                // [кого можно бить: ник] — /mcbot act AI_1 idle head_idle attack_center AI_2
                 if (args.length < 5) return false;
                 Bot bot = swarm.byName(args[1]);
                 if (bot == null) {
                     sender.sendMessage("Нет бота " + args[1] + ".");
                     return true;
+                }
+                if (args.length > 5) {
+                    org.bukkit.entity.Player victim = Bukkit.getPlayerExact(args[5]);
+                    com.google.gson.JsonArray ids = new com.google.gson.JsonArray();
+                    if (victim != null) ids.add(victim.getEntityId());
+                    bot.actions.setTaggable(ids);
                 }
                 com.google.gson.JsonObject actions = new com.google.gson.JsonObject();
                 actions.addProperty("legs", args[2]);

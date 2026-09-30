@@ -266,7 +266,7 @@ node js/bot.js
 
 | Канал   | Действия | Что это |
 |---------|----------|---------|
-| `legs`  | `idle`, `walk_forward`, `sprint_forward`, `walk_back`, `strafe_left`, `strafe_right`, `jump_forward`, `turn_left`, `turn_right`, `jump`, `sneak_back`, `sneak` | перемещение и поворот корпуса (30°) |
+| `legs`  | `idle`, `walk_forward`, `sprint_forward`, `walk_back`, `strafe_left`, `strafe_right`, `jump_forward`, `turn_left`, `turn_right`, `jump`, `sneak_back`, `sneak`, `turn_around` | перемещение и поворот корпуса (30°; `turn_around` — сразу на 180°) |
 | `head`  | `head_idle`, `look_up`, `look_down`, `look_left`, `look_right` | только взгляд: наклон и доворот по 10° |
 | `hands` | `hands_idle`, `attack_center`, `place_below`, `place_front`, `use_item`, `equip_armor`, `drop_item` | взаимодействие с миром и инвентарём |
 
